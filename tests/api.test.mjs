@@ -73,6 +73,18 @@ test('GET /cb/recent and /cb/upcoming', async () => {
   assert.equal(upcoming.status, 200);
   assert.ok(upcoming.body.result.count >= 8, 'upcoming fixture has 8 matches');
   assert.ok(upcoming.body.result.matches.every((m) => m.matchId));
+
+  // The flattened recent capture contains all-null pandas rows — they must be
+  // skipped, not emitted as ghost "T1 vs T2" matches with empty ids.
+  assert.ok(recent.body.result.matches.every((m) => m.matchId), 'no ghost matches with empty id');
+  assert.ok(
+    recent.body.result.matches.every((m) => !/^T\d vs T\d$/.test(m.teams)),
+    'no placeholder team names'
+  );
+  assert.ok(
+    recent.body.result.matches.every((m) => m.scores.every((s) => s.score !== '0/0')),
+    'no fake 0/0 innings from null rows'
+  );
 });
 
 test('GET /cb/search?q= filters matches', async () => {
