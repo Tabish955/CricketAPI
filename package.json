@@ -1,0 +1,17 @@
+{
+  "name": "cricketapi",
+  "version": "0.1.0",
+  "description": "Educational cricket data API: reverse-engineered Cricbuzz + ESPNcricinfo endpoints behind one JSON surface",
+  "type": "module",
+  "main": "src/server.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "start:fixtures": "DATA_MODE=fixtures node src/server.js",
+    "test": "DATA_MODE=fixtures node --test tests/*.test.mjs"
+  },
+  "license": "UNLICENSED",
+  "private": true
+}
