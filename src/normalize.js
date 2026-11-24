@@ -88,7 +88,9 @@ export function normalizeTypeMatches(payload) {
       const seriesName = wrapper.seriesName || '';
       for (const m of asArr(wrapper.matches)) {
         const info = m.matchInfo;
-        if (!info) continue;
+        // Skip rows with no matchInfo at all, and all-null rows (seen in the
+        // flattened recent capture: pandas-exported NaN rows).
+        if (!info || info.matchId == null || info.matchId === '') continue;
         out.push(normalizeModernMatchInfo(info, m.matchScore, { seriesId, seriesName }));
       }
     }
@@ -102,7 +104,8 @@ function inningsFromSide(side, teamShort) {
   for (const key of Object.keys(side)) {
     if (!/^inngs\d+$/.test(key)) continue;
     const inn = side[key];
-    if (!inn || inn.runs === undefined) continue;
+    // null runs (exported NaN innings) must not become fake "0/0" entries
+    if (!inn || inn.runs == null) continue;
     out.push({
       inningsId: Number(inn.inningsId ?? key.replace('inngs', '')),
       team: teamShort,
