@@ -14,6 +14,35 @@ npm test               # run the test suite against the fixture corpus
 
 Requires Node.js >= 18 (uses built-in `fetch`). No npm dependencies.
 
+## Deploy to Vercel
+
+The repo is Vercel-ready — the same router runs as a single serverless function:
+
+```bash
+npm i -g vercel && vercel    # or import the GitHub repo in the Vercel dashboard
+```
+
+What makes it work:
+
+- `api/index.js` (+ `api/[...path].js` catch-all) re-exports the core handler;
+  `vercel.json` rewrites every root path (`/cb/live`, `/health`, …) to it, so
+  public URLs stay **without** an `/api` prefix.
+- `functions.*.includeFiles: "fixtures/**"` bundles the recorded corpus, since
+  fixture files are opened dynamically and wouldn't be traced automatically.
+- `maxDuration: 60` gives slow upstream chains room; lower it if your plan
+  complains.
+
+Environment variables to set in the Vercel project (optional):
+
+| Var | Default | Note |
+| --- | --- | --- |
+| `DATA_MODE` | `auto` | `live` = never serve fixtures; `fixtures` = offline demo |
+| `UPSTREAM_TIMEOUT_MS` | `8000` | Consider `5000` on serverless to fail faster |
+
+Notes for serverless: the in-memory TTL cache lives per warm instance (that's
+fine — it only shortens repeated calls), and each cold start re-reads the
+fixture files from the bundle.
+
 ## Endpoints
 
 ### Cricbuzz (reference-API compatible)

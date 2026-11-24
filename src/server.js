@@ -440,7 +440,12 @@ function statusFor(res, err, prefix) {
 // Router
 // ---------------------------------------------------------------------------
 
-async function route(req, res) {
+/**
+ * Core request handler. Works with Node's http req/res AND Vercel's
+ * serverless req/res (same interface: req.url/method/headers,
+ * res.writeHead/res.end), which is why `api/index.js` re-exports it.
+ */
+export async function handler(req, res) {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const path = url.pathname.replace(/\/+$/, '') || '/';
   const q = url.searchParams;
@@ -545,7 +550,7 @@ async function route(req, res) {
 
 export function createServer() {
   return http.createServer((req, res) => {
-    route(req, res).catch((err) => {
+    handler(req, res).catch((err) => {
       console.error('[CricketAPI] unhandled', err);
       try {
         fail(res, 500, { message: `internal error: ${err.message}` });
