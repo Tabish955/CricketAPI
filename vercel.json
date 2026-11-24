@@ -1,0 +1,17 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "rewrites": [
+    { "source": "/((?!api/).*)", "destination": "/api" }
+  ],
+  "functions": {
+    "api/index.js": {
+      "includeFiles": "fixtures/**",
+      "maxDuration": 60
+    },
+    "api/[...path].js": {
+      "includeFiles": "fixtures/**",
+      "maxDuration": 60
+    }
+  }
+}
