@@ -14,6 +14,11 @@ const cache = new Map();
 
 // key -> fixture file. `:<id>` keys are exact-id matches; bare keys are generic.
 const FILES = {
+  'espn.live': 'espn-live.json',
+  'espn.recent': 'espn-recent.json',
+  'espn.upcoming': 'espn-upcoming.json',
+  'espn.series:24484': 'espn-recent.json',
+  'espn.standings:20921': 'espn-standings-ilt20.json',
   'cb.live': 'cricbuzz-live.json',
   'cb.recent': 'cricbuzz-recent.json',
   'cb.upcoming': 'cricbuzz-upcoming.json',

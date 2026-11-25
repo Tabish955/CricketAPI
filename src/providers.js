@@ -1,6 +1,7 @@
+import { fetchEspnHeader } from './espn.js';
 // Upstream providers. Each function returns { data, meta } where meta describes
 // provenance: source (live|fixture), upstream URL, and substitution flags.
-// In DATA_MODE=auto we try live first and fall back to recorded fixtures.
+// Recordings are used only in explicit DATA_MODE=fixtures.
 
 import {
   BASES,
@@ -25,10 +26,9 @@ import {
 } from './normalize.js';
 
 const FIXTURE_MODE = DATA_MODE === 'fixtures';
-const LIVE_ONLY = DATA_MODE === 'live';
 
 /**
- * Run `liveFn`; on failure in auto mode, serve the fixture for `fixtureOp`.
+ * Run `liveFn`; recordings are allowed only in explicit fixtures mode.
  * `normalizeFixture` maps the raw recorded payload into the same shape that
  * `liveFn` returns (fixtures are raw upstream captures; liveFn normalizes on
  * the way out, so fixture mode must normalize too). Always returns { data, meta }.
@@ -51,25 +51,8 @@ async function withFallback({ fixtureOp, fixtureId, liveFn, normalizeFixture, tt
       },
     };
   }
-  try {
-    const { data, meta } = await cached(cacheKey, ttl, liveFn);
-    return { data, meta };
-  } catch (err) {
-    if (LIVE_ONLY) throw err;
-    const fx = resolveFixture(fixtureOp, fixtureId);
-    if (!fx) throw err;
-    return {
-      data: normalizeFixture ? normalizeFixture(fx.data) : fx.data,
-      meta: {
-        source: 'fixture',
-        fixtureFile: fx.file,
-        substitutedForId: fx.substitutedForId,
-        fallbackReason: err.message,
-        fallbackStatus: err.status || 0,
-        cached: false,
-      },
-    };
-  }
+  // Production must never disguise a recording as a current score.
+  return cached(cacheKey, ttl, liveFn);
 }
 
 function liveMeta(url) {
@@ -96,8 +79,23 @@ export async function getCricbuzzMatches(kind = 'live') {
     ttl: kind === 'live' ? TTL.live : kind === 'recent' ? TTL.recent : TTL.upcoming,
     cacheKey: `cb:list:${route}`,
     liveFn: async () => {
-      const { json } = await fetchJson(url, { headers: CRICBUZZ_API_HEADERS });
-      return { data: normalizeTypeMatches(json), meta: liveMeta(url) };
+      try {
+        const { json } = await fetchJson(url, { headers: CRICBUZZ_API_HEADERS, retries: 0 });
+        if (!json || !Array.isArray(json.typeMatches)) throw new UpstreamError('invalid Cricbuzz list', { url });
+        return { data: normalizeTypeMatches(json), meta: liveMeta(url) };
+      } catch (cbError) {
+        const ciUrl = `${BASES.cricinfo}/v1/pages/matches/current?lang=en&latest=true`;
+        try {
+          const { json } = await fetchJson(ciUrl, { headers: CRICINFO_HEADERS, retries: 0 });
+          if (!Array.isArray(json.matches)) throw new UpstreamError('invalid Cricinfo list');
+          const data = json.matches.map(cricinfoMatch).filter((m) => m.category === route);
+          if (!data.length) throw new UpstreamError('Cricinfo has no matches for requested category');
+          return { data, meta: { ...liveMeta(ciUrl), fallbackReason: cbError.message } };
+        } catch (ciError) {
+          const result = await fetchEspnHeader(route);
+          return { ...result, meta: { ...result.meta, upstreamErrors: [cbError.message, ciError.message] } };
+        }
+      }
     },
   });
 }
@@ -616,8 +614,22 @@ export async function getCricinfoList(kind = 'current', date) {
     ttl: TTL.cricinfoList,
     cacheKey: `ci:list:${kind}:${date || ''}`,
     liveFn: async () => {
-      const { json } = await fetchJson(url, { headers: CRICINFO_HEADERS });
-      return { data: json, meta: liveMeta(url) };
+      try {
+        const { json } = await fetchJson(url, { headers: CRICINFO_HEADERS, retries: 0 });
+        if (!Array.isArray(json.matches)) throw new UpstreamError('invalid Cricinfo list');
+        return { data: json, meta: liveMeta(url) };
+      } catch (err) {
+        // The header is current-only; do not pretend it answers a historical date.
+        if (date) throw err;
+        const kindMap = { live: 'live', scheduled: 'upcoming', result: 'recent' };
+        const r = await fetchEspnHeader(kindMap[kind]);
+        return { data: { matches: r.data.map((m) => ({
+          id: m.matchId, title: m.teams, stage: ({ live: 'LIVE', recent: 'FINISHED', upcoming: 'SCHEDULED' })[m.category],
+          status: m.status, statusText: m.status, startDate: m.startDate ? new Date(m.startDate).toISOString() : null,
+          series: m.series, ground: { name: m.venue.ground, smallName: m.venue.city },
+          teams: [m.team1,m.team2].map((t) => ({ team: { name: t.name, abbreviation: t.short }, score: m.scores.filter((s) => s.team === t.short).map((s) => s.score).join(' & ') })),
+        })) }, meta: { ...r.meta, fallbackReason: err.message } };
+      }
     },
   });
 }
@@ -634,4 +646,17 @@ export async function getCricinfoMatch(seriesId, matchId) {
       return { data: json, meta: liveMeta(url) };
     },
   });
+}
+
+function cricinfoMatch(m) {
+  const team = (t = {}) => ({ id: String(t.team?.id || ''), name: t.team?.name || '', short: t.team?.abbreviation || t.team?.name || '' });
+  const category = ({ LIVE: 'live', FINISHED: 'recent', RESULT: 'recent', SCHEDULED: 'upcoming', FIXTURE: 'upcoming' })[m.stage] || 'upcoming';
+  const team1 = team(m.teams?.[0]), team2 = team(m.teams?.[1]);
+  return { matchId: String(m.id), teams: `${team1.short} vs ${team2.short}`, team1, team2,
+    category, live: category === 'live', state: m.stage, status: m.statusText || m.status || '',
+    series: { id: String(m.series?.id || ''), name: m.series?.name || '' },
+    startDate: Date.parse(m.startDate) || null, endDate: Date.parse(m.endDate) || null,
+    venue: { ground: m.ground?.name || '', city: m.ground?.smallName || '' },
+    scores: (m.teams || []).filter((t) => t.score).map((t) => ({ team: team(t).short, score: t.score, overs: t.scoreInfo || '' })),
+    source: 'espncricinfo', format: m.format || '' };
 }

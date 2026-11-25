@@ -231,3 +231,44 @@ payloads; in `auto`/`live` they are attempted live.
   (`SSL_ERROR_SYSCALL` / HTTP 500 / empty). Verification is via fixtures only.
 - `raw.githubusercontent.com` returns empty bodies — use `api.github.com` contents.
 - RapidAPI cricket proxies: key-gated.
+
+
+## 6. Current-score provider revision (November 2026)
+
+Production `auto` now means **live providers only**, not fixture fallback. This
+supersedes earlier descriptions of auto mode above. Old captures remain available
+only under explicit `DATA_MODE=fixtures` for regression tests.
+
+Observed public JSON endpoints:
+
+- `https://site.api.espn.com/apis/personalized/v2/scoreboard/header?sport=cricket&region=us&lang=en&tz=UTC`
+  — `sports[].leagues[].events[]`, state `in|pre|post`, event-level competitors.
+- `https://site.api.espn.com/apis/site/v2/sports/cricket/{league}/scoreboard?dates=YYYYMMDD`
+  — **top-level** `events[]`, competition competitors, innings totals, venue,
+  result, player-of-match. Do not read `leagues[0].events`.
+- `https://site.web.api.espn.com/apis/site/v2/sports/cricket/{league}/summary?event={id}&lang=en&region=in`
+  — summary header, venue, rosters, news. Implemented rosters are raw upstream
+  coverage; empty rosters must not be interpreted as a confirmed playing XI.
+- `https://site.api.espn.com/apis/v2/sports/cricket/{league}/standings`
+  — `children[].standings.entries[]`, named numeric stats; 20921 returned six
+  teams. Bilateral series can legitimately have no standings.
+
+The four `espn-*.json` files are recorded research responses for offline tests,
+not evidence of production freshness. Non-batting mirrored innings are removed
+using `isBatting === false`; a real batting innings beginning at 0/0 is retained.
+The header is a rolling current window, not a complete historical index.
+
+Cricbuzz list fallback order is modern JSON → Cricinfo current JSON → ESPN header.
+Provider IDs are never translated by guessing; returned links point to their own
+provider namespace. A successful live source is never supplemented by an offline
+legacy recording. Failed production requests return errors instead of old scores.
+
+The original endpoint inventory in section 1 remains historical; the eight new
+public route entries are listed in README and the root endpoint index. Individual
+ESPN batting/bowling tables and commentary are **not verified**; the scorecard
+route explicitly identifies its coverage as innings totals only.
+
+Validation: fixture HTTP tests plus mocked production-transport tests check the
+fallback order, source metadata, provider links, category mapping, standings,
+phantom innings, parameter validation, and no-fixture leakage in production.
+Actual Vercel-to-ESPN reachability still requires a deployed preview check.
