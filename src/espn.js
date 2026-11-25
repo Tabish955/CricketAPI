@@ -56,7 +56,9 @@ async function request(op, id, url, normalize, ttl = TTL.live) {
     if (!fx) { const err = new UpstreamError(`no fixture recorded for ${op}`, { status: 404 }); err.code = 'NO_FIXTURE'; throw err; }
     return { data: normalize(fx.data), meta: { source: 'fixture', fixtureFile: fx.file, cached: false } };
   }
-  return cached(url, ttl, async () => {
+  // Normalized responses depend on the operation (live/recent/upcoming share
+  // the same header URL). Never reuse a category-filtered result for another.
+  return cached(`${op}:${id ?? ''}:${url}`, ttl, async () => {
     const { json } = await fetchJson(url, { headers, retries: 0 });
     return { data: normalize(json), meta: { source: 'live', upstream: url, fetchedAt: new Date().toISOString(), cached: false } };
   });

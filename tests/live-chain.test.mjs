@@ -30,3 +30,26 @@ test('all production providers failing returns an error, not 2025 fixture data',
   try { await assert.rejects(getCricbuzzMatches('recent'),/HTTP 503/); }
   finally { globalThis.fetch = originalFetch; }
 });
+
+test('shared ESPN header URL cannot cross-contaminate cached match categories', async () => {
+  cacheClear();
+  const { fetchEspnHeader } = await import('../src/espn.js');
+  const captures = ['live', 'recent', 'upcoming'].map((kind) => JSON.parse(
+    readFileSync(new URL(`../fixtures/espn-${kind}.json`, import.meta.url))));
+  const mixed = { events: captures.flatMap((d) => d.events), leagues: captures[0].leagues };
+  globalThis.fetch = async () => new Response(JSON.stringify(mixed), { status: 200 });
+  try {
+    // Parallel access also exercises single-flight cache keys.
+    const kinds = ['live', 'recent', 'upcoming'];
+    const results = await Promise.all(kinds.map(fetchEspnHeader));
+    for (let i = 0; i < kinds.length; i++) {
+      assert.ok(results[i].data.length > 0);
+      assert.ok(results[i].data.every((m) => m.category === kinds[i]));
+      const again = await fetchEspnHeader(kinds[i]);
+      assert.equal(again.meta.cached, true);
+      assert.deepEqual(again.data, results[i].data);
+    }
+    const all = await fetchEspnHeader();
+    assert.equal(all.data.length, mixed.events.length, 'current list must not inherit a category filter');
+  } finally { globalThis.fetch = originalFetch; cacheClear(); }
+});
