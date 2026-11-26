@@ -2,7 +2,10 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "rewrites": [
-    { "source": "/((?!api/).*)", "destination": "/api" }
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/api"
+    }
   ],
   "functions": {
     "api/index.js": {
@@ -13,5 +16,6 @@
       "includeFiles": "fixtures/**",
       "maxDuration": 60
     }
-  }
+  },
+  "buildCommand": "node scripts/verify-deployment.mjs"
 }
