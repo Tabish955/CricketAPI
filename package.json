@@ -10,7 +10,8 @@
   "scripts": {
     "start": "node src/server.js",
     "start:fixtures": "DATA_MODE=fixtures node src/server.js",
-    "test": "DATA_MODE=fixtures node --test tests/*.test.mjs"
+    "test": "DATA_MODE=fixtures node --test tests/*.test.mjs",
+    "audit:assets": "node scripts/validate-team-assets.mjs"
   },
   "license": "UNLICENSED",
   "private": true,

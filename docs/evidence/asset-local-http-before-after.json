@@ -1,0 +1,106 @@
+[
+  {
+    "label": "baseline",
+    "evidenceType": "local HTTP replay of recorded standings; NOT live CDN verification",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "cacheControl": null,
+    "bytes": 6483,
+    "teamCount": 6,
+    "reportedDeadReferences": 1,
+    "nullImageReferences": 0,
+    "teams": [
+      {
+        "id": "1346030",
+        "name": "Gulf Giants",
+        "short": "GG",
+        "imageUrl": "https://a.espncdn.com/i/teamlogos/cricket/500/1346030.png"
+      },
+      {
+        "id": "1346027",
+        "name": "Abu Dhabi Knight Riders",
+        "short": "ADKR",
+        "imageUrl": "https://a.espncdn.com/i/teamlogos/cricket/500/1346027.png"
+      },
+      {
+        "id": "1328788",
+        "name": "MI Emirates",
+        "short": "MIE",
+        "imageUrl": "https://a.espncdn.com/i/teamlogos/cricket/500/1328788.png"
+      },
+      {
+        "id": "1346066",
+        "name": "Desert Vipers",
+        "short": "DV",
+        "imageUrl": "https://a.espncdn.com/i/teamlogos/cricket/500/1346066.png"
+      },
+      {
+        "id": "1133698",
+        "name": "Sharjah Warriorz",
+        "short": "SW",
+        "imageUrl": "https://a.espncdn.com/i/teamlogos/cricket/500/1133698.png"
+      },
+      {
+        "id": "1346029",
+        "name": "Dubai Capitals",
+        "short": "DBC",
+        "imageUrl": "https://a.espncdn.com/i/teamlogos/cricket/500/1346029.png"
+      }
+    ]
+  },
+  {
+    "label": "candidate",
+    "evidenceType": "local HTTP replay of recorded standings; NOT live CDN verification",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "cacheControl": "no-store",
+    "bytes": 6614,
+    "teamCount": 6,
+    "reportedDeadReferences": 0,
+    "nullImageReferences": 1,
+    "teams": [
+      {
+        "id": "1346030",
+        "name": "Gulf Giants",
+        "short": "GG",
+        "imageUrl": "https://a.espncdn.com/i/teamlogos/cricket/500/1346030.png",
+        "flagUrl": null
+      },
+      {
+        "id": "1346027",
+        "name": "Abu Dhabi Knight Riders",
+        "short": "ADKR",
+        "imageUrl": null,
+        "flagUrl": null
+      },
+      {
+        "id": "1328788",
+        "name": "MI Emirates",
+        "short": "MIE",
+        "imageUrl": "https://a.espncdn.com/i/teamlogos/cricket/500/1328788.png",
+        "flagUrl": null
+      },
+      {
+        "id": "1346066",
+        "name": "Desert Vipers",
+        "short": "DV",
+        "imageUrl": "https://a.espncdn.com/i/teamlogos/cricket/500/1346066.png",
+        "flagUrl": null
+      },
+      {
+        "id": "1133698",
+        "name": "Sharjah Warriorz",
+        "short": "SW",
+        "imageUrl": "https://a.espncdn.com/i/teamlogos/cricket/500/1133698.png",
+        "flagUrl": null
+      },
+      {
+        "id": "1346029",
+        "name": "Dubai Capitals",
+        "short": "DBC",
+        "imageUrl": "https://a.espncdn.com/i/teamlogos/cricket/500/1346029.png",
+        "flagUrl": null
+      }
+    ]
+  }
+]

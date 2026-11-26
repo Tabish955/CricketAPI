@@ -18,6 +18,20 @@ a dynamic public table is not proof of current-season freshness.
 See [research, contracts and verification limits](docs/INNINGS-AND-STANDINGS-RESEARCH.md).
 Source fields have been inspected; new deployed behavior still needs a live smoke test.
 
+## Asset integrity candidate — release on hold
+
+See [incident and before/after evidence](docs/ASSET-INCIDENT.md) and
+[field/operational contracts](docs/API-CONTRACTS.md). The candidate nulls four
+reported-dead crest URLs and absent team images, adds `flagUrl: null` and
+provider-scoped score team IDs, and makes JSON caching explicitly `no-store`.
+No national-team flag assets or substitute crest paths are invented.
+
+Run `npm run audit:assets -- --standings=/espn/standings/20921 --out=asset-audit.json`
+from a network-enabled environment. The prepared CI workflow fails closed on
+red/unknown URLs, incomplete discovery or an empty inventory. It is not a
+substitute for Vercel promotion controls. Production is unchanged until live
+before/after HTTP evidence is reviewed and deployment is approved.
+
 ## Quick start
 
 ```bash

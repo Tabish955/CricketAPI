@@ -1,3 +1,4 @@
+import { teamAssets } from './team-assets.js';
 // Public ESPN endpoints observed in scoreboard/header, league scoreboard,
 // summary and standings responses. Recordings are for explicit offline tests only.
 import { DATA_MODE, TTL } from './config.js';
@@ -20,15 +21,15 @@ export function normalizeEspnEvent(event, league = {}) {
   const competitors = comp.competitors || [];
   const team = (c = {}) => {
     const t = c.team || c;
-    return { id: text(t.id), name: text(t.displayName || t.name), short: text(t.abbreviation || t.name), imageUrl: t.logo || '' };
+    return teamAssets({ id: text(t.id), name: text(t.displayName || t.name), short: text(t.abbreviation || t.name), imageUrl: t.logo || t.logos?.[0]?.href || null });
   };
   const team1 = team(competitors[0]);
   const team2 = team(competitors[1]);
   const scores = competitors.flatMap((c) => (c.linescores || [])
     // Non-batting mirrors have the opponent's overs and fictitious zero runs.
     .filter((i) => i.isBatting !== false && i.runs != null)
-    .map((i) => ({ inningsId: i.period, team: team(c).short, score: `${i.runs}/${i.wickets ?? 0}`, overs: text(i.overs), declared: /declared/i.test(i.description || '') })));
-  if (!scores.length) for (const c of competitors) if (c.score) scores.push({ team: team(c).short, score: text(c.score), overs: '' });
+    .map((i) => ({ inningsId: i.period, teamId: team(c).id || null, team: team(c).short, score: `${i.runs}/${i.wickets ?? 0}`, overs: text(i.overs), declared: /declared/i.test(i.description || '') })));
+  if (!scores.length) for (const c of competitors) if (c.score) scores.push({ teamId: team(c).id || null, team: team(c).short, score: text(c.score), overs: '' });
   const venue = comp.venue || event.venue || {};
   const leagueId = text(league.id || event.league?.id || event.links?.map((l) => l.href?.match(/series\/(\d+)/)?.[1]).find(Boolean));
   return {
@@ -88,7 +89,7 @@ export function normalizeEspnStandings(raw, league) {
       id: text(node.id), name: text(node.name || node.standings.displayName),
       season: node.standings.season ?? null,
       entries: node.standings.entries.map((e) => ({
-        team: { id: text(e.team?.id), name: text(e.team?.displayName), short: text(e.team?.abbreviation), imageUrl: e.team?.logos?.[0]?.href || '' },
+        team: teamAssets({ id: text(e.team?.id), name: text(e.team?.displayName), short: text(e.team?.abbreviation), imageUrl: e.team?.logos?.[0]?.href || null }),
         stats: Object.fromEntries((e.stats || []).filter((s) => s.value != null && s.value !== '').map((s) => [s.name, s.value])),
         displayStats: Object.fromEntries((e.stats || []).filter((s) => s.displayValue != null).map((s) => [s.name, s.displayValue])),
       })),
