@@ -1,5 +1,5 @@
 import { getCrexMatches } from './crex.js';
-import { getEspnMatches, getEspnSeries, getEspnMatch, getEspnStandings, getEspnScorecard, getEspnCommentary } from './espn.js';
+import { getEspnMatches, getEspnSeries, getEspnMatch, getEspnStandings, getEspnScorecard, getEspnCommentary, normalizeEspnSquads } from './espn.js';
 // CricketAPI — zero-dependency Node HTTP server.
 // Route surface mirrors the reference CricBuzz proxy API and adds the extra
 // upstreams we reverse-engineered (legacy mapps API, ESPNcricinfo).
@@ -567,7 +567,7 @@ export async function handler(req, res) {
           result = r.data;
         } else {
           r = await getEspnMatch(q.get('league'), match[1], q.get('date'), match[2] === 'squads');
-          result = match[2] === 'squads' ? r.data
+          result = match[2] === 'squads' ? { matchId: match[1], teams: normalizeEspnSquads(r.data.teams) }
             : { found: true, match: { ...r.data, ...linkSet(origin, match[1], r.data) } };
         }
       } else return fail(res, 404, { message: 'unknown ESPN route' });

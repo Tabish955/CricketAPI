@@ -1,6 +1,6 @@
 # CricketAPI
 
-A personal, zero-dependency Node.js cricket API that aggregates **Cricbuzz** (modern web-app API + legacy `mapps` mobile API) and **ESPNcricinfo**, with the same route surface as the reference Cricbuzz proxy API.
+A personal Node.js cricket API that aggregates **Cricbuzz** (modern web-app API + legacy `mapps` mobile API) and **ESPNcricinfo**, with the same route surface as the reference Cricbuzz proxy API.
 
 > **Disclaimer:** This project is for **educational purposes only**. **Commercial or business use is prohibited.** It reverse-engineers publicly served endpoints for personal study; you are responsible for respecting the terms of service and rate limits of any upstream site.
 
@@ -12,7 +12,7 @@ npm run start:fixtures # fixtures mode: serve only the recorded corpus (no netwo
 npm test               # run the test suite against the fixture corpus
 ```
 
-Requires Node.js >= 18 (uses built-in `fetch`). No npm dependencies.
+Requires Node.js >= 18 (uses built-in `fetch`). Run `npm ci` first; Cheerio parses independent-provider HTML.
 
 ## Deploy to Vercel
 
@@ -77,7 +77,7 @@ fixture files from the bundle.
 | `GET /` | Endpoint index + available fixture ids |
 | `GET /img?u=<url>` | Image proxy, restricted to an allowlist of Cricbuzz/ESPN image hosts |
 
-Every response carries `meta.source` (`live` or `fixture`) so you can always tell which path served it. In `auto` and `live` modes, failures never fall back to the recorded corpus. List routes try Cricbuzz → Cricinfo → ESPN public scoreboards; if all fail, the API returns an upstream error.
+Every response carries `meta.source` (`live` or `fixture`) so you can always tell which path served it. In `auto` and `live` modes, failures never fall back to the recorded corpus. List routes try Cricbuzz → Cricinfo → ESPN public scoreboards → CREX; if all fail, the API returns an upstream error.
 
 ## Data modes
 
@@ -122,7 +122,7 @@ src/
   fixtures.js    # recorded-response registry (exact-id + flagged substitution)
   normalize.js   # all payload → unified-shape normalizers
   providers.js   # upstream calls with live provider fallback chain
-  server.js      # zero-dependency HTTP router
+  server.js      # Node HTTP router
 fixtures/        # recorded upstream responses (see docs/REVERSE-ENGINEERING.md)
 tests/           # node:test suite running against the fixture corpus
 docs/            # reverse-engineering notes: endpoints, shapes, provenance
@@ -154,7 +154,8 @@ league ID. Supply `date=YYYYMMDD` to look up a historical league scoreboard.
 | `GET /espn/match/:id/squads?league=ID` | Summary rosters if supplied upstream |
 | `GET /espn/standings/:id` | Team standings: played, won, lost, points, NRR |
 
-No ESPN commentary endpoint has been verified. Header coverage is a current
+ESPN ball-by-ball is available at `GET /espn/match/:id/commentary?league=ID&page=1`
+with upstream pagination (`pageCount`, `total`); page numbering starts at 1. Header coverage is a current
 window, not a full cricket calendar; an empty list is possible. ESPN data is
 fetched at request time and cached briefly. Reachability from research tooling
 does not establish reachability from Vercel: deployment verification is still
@@ -170,8 +171,8 @@ schedule at `https://crex.com/schedule`. CREX IDs are not Cricbuzz/ESPN IDs.
 Detail links point to CREX itself; no cross-provider ID guessing is performed.
 Missing dates are `null` (display-only start text is retained). Unsupported
 markup returns an upstream error, never fabricated matches or offline data.
-This adapter is initially **explicit-only**, pending deployed runtime validation;
-it does not yet participate in `/cb/*` fallback. Parser tests use synthetic
+This adapter is also the fourth `/cb/*` list fallback after Cricbuzz, Cricinfo
+and ESPN. It is never merged with a successful higher-priority provider. Parser tests use synthetic
 selector-contract samples, not a captured live HTML fixture.
 
 ESPN scorecards now inspect summary roster **per-innings** statistics for runs,
@@ -179,3 +180,26 @@ balls, boundaries, strike rate, dismissal, overs, wickets, conceded runs and
 economy. Coverage is explicitly reported; if summary fails the response preserves
 scoreboard innings totals with a warning. No career totals or nested per-over
 records are mixed into innings statistics.
+
+
+### Runtime provider diagnostics
+
+`GET /sources/status` reports whether the ESPN and CREX adapters currently return
+parseable data, their upstream URLs, fetch times and failures. A successful HTTP
+response from this diagnostics route does **not** mean every source is healthy;
+check each entry's `available` field. In offline fixtures mode it reports test
+recordings as such. No arbitrary probe URLs are accepted.
+
+
+Live ESPN scoreboard totals and embedded player statistics have 10-second cache
+TTLs. Squad metadata retains a separate 5-minute cache and cannot freeze the
+scorecard. Commentary has a 20-second cache. Upstream response-body reads are
+covered by the request timeout as well as connection/header reads.
+
+### Checked deployment progress
+
+Production after PR #3: current live/finished/upcoming lists, match details and
+ILT20 standings returned `source: live`. PR #4 preview additionally returned
+individual batting/bowling tables and paginated commentary. CREX preview lists
+were verified for all three categories. See `docs/LIVE-VERIFICATION.md` for
+specific evidence and limitations. Build success alone is not data verification.

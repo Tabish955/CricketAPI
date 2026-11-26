@@ -84,3 +84,19 @@ test('expanded ESPN HTTP routes return player innings and paginated commentary i
     globalThis.fetch = originalFetch; cacheClear(); await new Promise((r) => server.close(r));
   }
 });
+
+test('independent CREX source is used when Cricbuzz, Cricinfo and ESPN fail', async () => {
+  cacheClear();
+  const calls = [];
+  const html = `<a class="match-card-wrapper" href="/cricket-live-score/a-vs-b-match-updates-123A"><div class="team-info"><span class="team-name">A</span><span class="team-score">10/1</span></div><div class="result"><span>Live</span></div><div class="team-info"><span class="team-name">B</span></div></a>`;
+  globalThis.fetch = async (url) => {
+    calls.push(String(url));
+    return String(url).startsWith('https://crex.com/') ? new Response(html) : new Response('{}', { status:503 });
+  };
+  try {
+    const r = await getCricbuzzMatches('live');
+    assert.equal(r.data[0].source,'crex'); assert.equal(r.meta.source,'live');
+    assert.equal(r.meta.upstreamErrors.length,3);
+    assert.deepEqual(calls.map((u) => new URL(u).hostname), ['www.cricbuzz.com','hs-consumer-api.espncricinfo.com','site.api.espn.com','crex.com']);
+  } finally { globalThis.fetch = originalFetch; cacheClear(); }
+});

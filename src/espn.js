@@ -72,10 +72,10 @@ export async function fetchEspnHeader(kind) {
 }
 export const getEspnMatches = fetchEspnHeader;
 export function getEspnSeries(league, date) {
-  return request('espn.series', league, `${SITE}/apis/site/v2/sports/cricket/${league}/scoreboard${date ? `?dates=${encodeURIComponent(date)}` : ''}`, normalizeEspnScoreboard, TTL.series);
+  return request('espn.series', league, `${SITE}/apis/site/v2/sports/cricket/${league}/scoreboard${date ? `?dates=${encodeURIComponent(date)}` : ''}`, normalizeEspnScoreboard, TTL.liveScore);
 }
 export async function getEspnMatch(league, id, date, squads = false) {
-  if (squads) return request('espn.squads', id, `${WEB}/apis/site/v2/sports/cricket/${league}/summary?event=${id}&lang=en&region=in`, (raw) => ({ matchId: id, teams: raw.rosters || [] }), TTL.squads);
+  if (squads) return getEspnRosters(league, id);
   const result = await getEspnSeries(league, date);
   const match = result.data.find((m) => m.matchId === id);
   if (!match) throw new UpstreamError('match not found in league scoreboard; supply date=YYYYMMDD for historical matches', { status: 404 });
@@ -128,7 +128,7 @@ export async function getEspnScorecard(league, id, date) {
   // summary fails, while explicitly reporting the unavailable player statistics.
   const detail = await getEspnMatch(league, id, date);
   let summary;
-  try { summary = await getEspnMatch(league, id, date, true); }
+  try { summary = await getEspnRosters(league, id, true); }
   catch (err) {
     return { data: { matchId: id, innings: detail.data.scores, coverage: 'innings totals only', warnings: [err.message] }, meta: detail.meta };
   }
@@ -164,4 +164,29 @@ export function getEspnCommentary(league, id, page = 1) {
   return request('espn.commentary', id,
     `${WEB}/apis/site/v2/sports/cricket/${league}/playbyplay?event=${id}&page=${page}`,
     normalizeEspnCommentary, TTL.commentary);
+}
+
+export function normalizeEspnSquads(rosters = []) {
+  return rosters.map((side) => ({
+    teamId: text(side.team?.id), teamName: text(side.team?.displayName),
+    players: (side.roster || []).map((p) => ({
+      id: text(p.athlete?.id), name: text(p.athlete?.displayName || p.athlete?.name),
+      role: text(p.position?.name || p.athlete?.position?.name),
+      isCaptain: !!p.captain, isStarter: !!p.starter,
+      battingStyle: text(p.athlete?.style?.find((s) => s.type === 'batting')?.description),
+      bowlingStyle: text(p.athlete?.style?.find((s) => s.type === 'bowling')?.description),
+    })),
+  }));
+}
+
+
+function getEspnRosters(league, id, statistics = false) {
+  // Playing squads change slowly; their embedded live stats do not. Keep
+  // separate cache entries/TTLs so squads cannot freeze a live scorecard.
+  return request(statistics ? 'espn.playerStats' : 'espn.squads', id,
+    `${WEB}/apis/site/v2/sports/cricket/${league}/summary?event=${id}&lang=en&region=in`,
+    (raw) => {
+      if (!Array.isArray(raw.rosters)) throw new UpstreamError('ESPN summary rosters missing');
+      return { matchId: id, teams: raw.rosters };
+    }, statistics ? TTL.liveScore : TTL.squads);
 }

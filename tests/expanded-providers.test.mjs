@@ -50,3 +50,11 @@ test('CREX observed schedule uses anchor cards and direct result spans', () => {
   assert.deepEqual(rows.map((m) => m.category), ['recent','live','upcoming']);
   assert.equal(rows[0].status,'A Won'); assert.equal(rows[2].startTimeText,'3:00 AM');
 });
+
+test('compact ESPN squads keep roles, starters and styles, omit giant statistics arrays', async () => {
+  const { normalizeEspnSquads } = await import('../src/espn.js');
+  const teams = normalizeEspnSquads([{ team:{ id:'1', displayName:'Team' }, roster:[{ captain:true, starter:true, athlete:{ id:'2', displayName:'Player', style:[{ type:'batting', description:'Right-hand bat' }] }, linescores:[{}] }] }]);
+  assert.equal(teams[0].players[0].isCaptain,true);
+  assert.equal(teams[0].players[0].battingStyle,'Right-hand bat');
+  assert.ok(!('linescores' in teams[0].players[0]));
+});
