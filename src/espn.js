@@ -72,10 +72,10 @@ export async function fetchEspnHeader(kind) {
 }
 export const getEspnMatches = fetchEspnHeader;
 export function getEspnSeries(league, date) {
-  return request('espn.series', league, `${SITE}/apis/site/v2/sports/cricket/${league}/scoreboard${date ? `?dates=${encodeURIComponent(date)}` : ''}`, normalizeEspnScoreboard, TTL.series);
+  return request('espn.series', league, `${SITE}/apis/site/v2/sports/cricket/${league}/scoreboard${date ? `?dates=${encodeURIComponent(date)}` : ''}`, normalizeEspnScoreboard, TTL.liveScore);
 }
 export async function getEspnMatch(league, id, date, squads = false) {
-  if (squads) return request('espn.squads', id, `${WEB}/apis/site/v2/sports/cricket/${league}/summary?event=${id}&lang=en&region=in`, (raw) => ({ matchId: id, teams: raw.rosters || [] }), TTL.squads);
+  if (squads) return getEspnRosters(league, id);
   const result = await getEspnSeries(league, date);
   const match = result.data.find((m) => m.matchId === id);
   if (!match) throw new UpstreamError('match not found in league scoreboard; supply date=YYYYMMDD for historical matches', { status: 404 });
@@ -86,4 +86,107 @@ export function getEspnStandings(league) {
     leagueId: league, season: raw.season || null,
     groups: (raw.children || []).map((g) => ({ name: g.name, entries: (g.standings?.entries || []).map((e) => ({ team: { id: e.team.id, name: e.team.displayName, short: e.team.abbreviation }, stats: Object.fromEntries((e.stats || []).filter((s) => s.value != null).map((s) => [s.name, s.value])) })) })),
   }), TTL.pointsTable);
+}
+
+/** Match-specific statistics live on roster[].linescores[], not career totals.
+ * Ignore nested per-over linescores: the parent already contains innings totals.
+ */
+export function normalizeEspnPlayerInnings(rosters = []) {
+  const innings = new Map();
+  for (const side of rosters) for (const player of side.roster || []) {
+    for (const line of player.linescores || []) {
+      const stats = Object.fromEntries((line.statistics?.categories || [])
+        .flatMap((c) => c.stats || []).map((s) => [s.name, s.value]));
+      const period = Number(stats.inningsNumber || line.period);
+      if (!period || (!stats.batted && !stats.inningsBowled)) continue;
+      if (!innings.has(period)) innings.set(period, { inningsId: period, batsmen: [], bowlers: [] });
+      const inn = innings.get(period);
+      const athlete = player.athlete || {};
+      const base = { id: text(athlete.id), name: text(athlete.displayName || athlete.name), teamId: text(side.team?.id) };
+      if (Number(stats.batted) > 0) {
+        inn.team = text(side.team?.abbreviation || side.team?.displayName);
+        inn.batsmen.push({ ...base, position: stats.battingPosition ?? null,
+          runs: stats.runs ?? null, balls: stats.ballsFaced ?? null,
+          fours: stats.fours ?? null, sixes: stats.sixes ?? null, strikeRate: stats.strikeRate ?? null,
+          dismissal: line.statistics?.batting?.outDetails?.shortText || (Number(stats.notouts) > 0 ? 'not out' : ''),
+          isBatting: !!line.statistics?.batting?.active,
+        });
+      }
+      if (Number(stats.inningsBowled) > 0) inn.bowlers.push({ ...base,
+        overs: text(stats.overs), maidens: stats.maidens ?? null, runs: stats.conceded ?? null,
+        wickets: stats.wickets ?? null, economy: stats.economyRate ?? null,
+        wides: stats.wides ?? null, noBalls: stats.noballs ?? null,
+      });
+    }
+  }
+  return [...innings.values()].sort((a,b) => a.inningsId - b.inningsId)
+    .map((i) => ({ ...i, batsmen: i.batsmen.sort((a,b) => (a.position ?? 100) - (b.position ?? 100)) }));
+}
+
+export async function getEspnScorecard(league, id, date) {
+  // Summary and scoreboard have independent coverage. Preserve totals if the
+  // summary fails, while explicitly reporting the unavailable player statistics.
+  const detail = await getEspnMatch(league, id, date);
+  let summary;
+  try { summary = await getEspnRosters(league, id, true); }
+  catch (err) {
+    return { data: { matchId: id, innings: detail.data.scores, coverage: 'innings totals only', warnings: [err.message] }, meta: detail.meta };
+  }
+  const rows = normalizeEspnPlayerInnings(summary.data.teams);
+  const totals = detail.data.scores;
+  const innings = totals.map((total) => ({ ...total,
+    batsmen: rows.find((i) => i.inningsId === total.inningsId)?.batsmen || [],
+    bowlers: rows.find((i) => i.inningsId === total.inningsId)?.bowlers || [],
+  }));
+  return { data: { matchId: id, innings,
+    coverage: rows.length ? 'innings totals and available player statistics' : 'innings totals only',
+  }, meta: { ...detail.meta, playerStatistics: summary.meta } };
+}
+
+export function normalizeEspnCommentary(raw) {
+  if (!raw.commentary || !Array.isArray(raw.commentary.items)) throw new UpstreamError('ESPN commentary payload missing');
+  const c = raw.commentary;
+  return {
+    page: c.pageIndex, pageSize: c.pageSize, pageCount: c.pageCount, total: c.count,
+    commentary: c.items.map((p) => ({
+      id: text(p.id), inningsId: p.innings?.number ?? p.period ?? null,
+      over: p.over?.actual ?? p.over?.overs ?? null, ball: p.over?.ball ?? null,
+      event: text(p.playType?.description), text: text(p.text || p.shortText),
+      runs: p.scoreValue ?? null, batsman: text(p.batsman?.athlete?.displayName),
+      bowler: text(p.bowler?.athlete?.displayName),
+      // In this feed totalRuns is the delivery contribution; runs is cumulative.
+      score: p.innings?.runs != null ? `${p.innings.runs}/${p.innings.wickets ?? 0}` : null,
+      wicket: !!p.dismissal?.dismissal,
+    })),
+  };
+}
+export function getEspnCommentary(league, id, page = 1) {
+  return request('espn.commentary', id,
+    `${WEB}/apis/site/v2/sports/cricket/${league}/playbyplay?event=${id}&page=${page}`,
+    normalizeEspnCommentary, TTL.commentary);
+}
+
+export function normalizeEspnSquads(rosters = []) {
+  return rosters.map((side) => ({
+    teamId: text(side.team?.id), teamName: text(side.team?.displayName),
+    players: (side.roster || []).map((p) => ({
+      id: text(p.athlete?.id), name: text(p.athlete?.displayName || p.athlete?.name),
+      role: text(p.position?.name || p.athlete?.position?.name),
+      isCaptain: !!p.captain, isStarter: !!p.starter,
+      battingStyle: text(p.athlete?.style?.find((s) => s.type === 'batting')?.description),
+      bowlingStyle: text(p.athlete?.style?.find((s) => s.type === 'bowling')?.description),
+    })),
+  }));
+}
+
+
+function getEspnRosters(league, id, statistics = false) {
+  // Playing squads change slowly; their embedded live stats do not. Keep
+  // separate cache entries/TTLs so squads cannot freeze a live scorecard.
+  return request(statistics ? 'espn.playerStats' : 'espn.squads', id,
+    `${WEB}/apis/site/v2/sports/cricket/${league}/summary?event=${id}&lang=en&region=in`,
+    (raw) => {
+      if (!Array.isArray(raw.rosters)) throw new UpstreamError('ESPN summary rosters missing');
+      return { matchId: id, teams: raw.rosters };
+    }, statistics ? TTL.liveScore : TTL.squads);
 }

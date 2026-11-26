@@ -18,7 +18,9 @@ async function attempt(url, { headers = {}, method = 'GET', timeoutMs } = {}) {
   const timer = setTimeout(() => controller.abort(), timeoutMs ?? UPSTREAM_TIMEOUT_MS);
   try {
     const res = await fetch(url, { method, headers, signal: controller.signal, redirect: 'follow' });
-    return res;
+    // Keep the abort signal active until the response body is consumed.
+    const text = await res.text();
+    return { res, text };
   } catch (err) {
     if (err.name === 'AbortError') {
       throw new UpstreamError(`upstream timeout after ${timeoutMs ?? UPSTREAM_TIMEOUT_MS}ms`, { url, cause: err });
@@ -37,8 +39,7 @@ export async function fetchText(url, { headers = {}, timeoutMs, retries = 1 } = 
   let lastErr;
   for (let i = 0; i <= retries; i++) {
     try {
-      const res = await attempt(url, { headers, timeoutMs });
-      const text = await res.text();
+      const { res, text } = await attempt(url, { headers, timeoutMs });
       if (!res.ok) {
         const err = new UpstreamError(`upstream HTTP ${res.status} for ${url}`, {
           status: res.status,

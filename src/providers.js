@@ -1,3 +1,4 @@
+import { getCrexMatches } from './crex.js';
 import { fetchEspnHeader } from './espn.js';
 // Upstream providers. Each function returns { data, meta } where meta describes
 // provenance: source (live|fixture), upstream URL, and substitution flags.
@@ -92,8 +93,13 @@ export async function getCricbuzzMatches(kind = 'live') {
           if (!data.length) throw new UpstreamError('Cricinfo has no matches for requested category');
           return { data, meta: { ...liveMeta(ciUrl), fallbackReason: cbError.message } };
         } catch (ciError) {
-          const result = await fetchEspnHeader(route);
-          return { ...result, meta: { ...result.meta, upstreamErrors: [cbError.message, ciError.message] } };
+          try {
+            const result = await fetchEspnHeader(route);
+            return { ...result, meta: { ...result.meta, upstreamErrors: [cbError.message, ciError.message] } };
+          } catch (espnError) {
+            const result = await getCrexMatches(route);
+            return { ...result, meta: { ...result.meta, upstreamErrors: [cbError.message, ciError.message, espnError.message] } };
+          }
         }
       }
     },

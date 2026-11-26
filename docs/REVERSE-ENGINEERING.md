@@ -272,3 +272,22 @@ Validation: fixture HTTP tests plus mocked production-transport tests check the
 fallback order, source metadata, provider links, category mapping, standings,
 phantom innings, parameter validation, and no-fixture leakage in production.
 Actual Vercel-to-ESPN reachability still requires a deployed preview check.
+
+## 7. Expanded scorecards and independent fallback
+
+See `LIVE-VERIFICATION.md` for deployed response evidence. Summary roster
+`linescores[].statistics.categories[].stats[]` contains match-specific batting
+and bowling innings. Parent linescores are totals; nested per-over linescores
+must not be summed again. Fielding-only rows are excluded from bowler tables.
+
+Observed additional endpoint:
+`https://site.web.api.espn.com/apis/site/v2/sports/cricket/{league}/playbyplay?event={id}&page=2`
+returns `commentary.{count,pageIndex,pageCount,pageSize,items}`. The cumulative
+score is `items[].innings.runs`, not `innings.totalRuns` (delivery contribution).
+Pagination was directly verified with differing page-1/page-2 deliveries.
+
+Independent fallback: `https://crex.com/schedule` public SSR markup. Read anchor
+cards directly, preserve alphanumeric provider IDs, classify explicit live/time/
+result markers, and reject unsupported markup. Selector-contract tests include
+the observed anchor/direct-span structure. CREX's parser was deployed and tested
+before it joined the automatic list chain. Dependency: Cheerio 1.0.0 (Node 18).
