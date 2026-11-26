@@ -1,5 +1,5 @@
 import { getCrexMatches } from './crex.js';
-import { getEspnMatches, getEspnSeries, getEspnMatch, getEspnStandings, getEspnScorecard } from './espn.js';
+import { getEspnMatches, getEspnSeries, getEspnMatch, getEspnStandings, getEspnScorecard, getEspnCommentary } from './espn.js';
 // CricketAPI — zero-dependency Node HTTP server.
 // Route surface mirrors the reference CricBuzz proxy API and adds the extra
 // upstreams we reverse-engineered (legacy mapps API, ESPNcricinfo).
@@ -63,7 +63,7 @@ function linkSet(origin, matchId, match) {
     const date = match.startDate ? new Date(match.startDate).toISOString().slice(0,10).replaceAll('-', '') : '';
     const query = `?league=${encodeURIComponent(match.series.id)}&date=${date}`;
     const base = `${origin}/espn/match/${matchId}`;
-    return { detail: base + query, scorecard: base + '/scorecard' + query, squads: base + '/squads' + query, upstream: match.upstream };
+    return { detail: base + query, scorecard: base + '/scorecard' + query, commentary: base + '/commentary' + query, squads: base + '/squads' + query, upstream: match.upstream };
   }
   if (match?.source === 'espncricinfo') return { detail: `${origin}/cricinfo/match/${matchId}?seriesId=${encodeURIComponent(match.series.id)}` };
   return {
@@ -481,6 +481,8 @@ export async function handler(req, res) {
         dataMode: DATA_MODE,
         endpoints: [
           'GET /health',
+          'GET /sources/status',
+          'GET /espn/match/:id/commentary?league=ID&page=1',
           'GET /crex/live',
           'GET /crex/recent',
           'GET /crex/upcoming',
@@ -518,6 +520,17 @@ export async function handler(req, res) {
       return send(res, 200, { success: true, status: 'ok', dataMode: DATA_MODE, uptime: process.uptime() });
     }
 
+    if (path === '/sources/status') {
+      const probes = await Promise.all([
+        ['espn', () => getEspnMatches('live')],
+        ['crex', () => getCrexMatches()],
+      ].map(async ([name, fn]) => {
+        try { const r = await fn(); return { name, available: true, count: r.data.length, meta: r.meta }; }
+        catch (err) { return { name, available: false, error: err.message, upstreamStatus: err.status || 0 }; }
+      }));
+      return send(res, 200, { success: true, dataMode: DATA_MODE, sources: probes });
+    }
+
     const crexList = path.match(/^\/crex\/(live|recent|upcoming)$/);
     if (crexList) {
       const r = await getCrexMatches(crexList[1]);
@@ -532,7 +545,7 @@ export async function handler(req, res) {
       const list = path.match(/^\/espn\/(live|recent|upcoming)$/);
       const series = path.match(/^\/espn\/series\/(\d+)\/matches$/);
       const standings = path.match(/^\/espn\/standings\/(\d+)$/);
-      const match = path.match(/^\/espn\/match\/(\d+)(?:\/(scorecard|squads))?$/);
+      const match = path.match(/^\/espn\/match\/(\d+)(?:\/(scorecard|squads|commentary))?$/);
       if (list) {
         r = await getEspnMatches(list[1]);
         result = { found: r.data.length > 0, count: r.data.length, matches: r.data.map((m) => presentMatch(m, origin)) };
@@ -545,7 +558,11 @@ export async function handler(req, res) {
       } else if (match) {
         if (!/^\d+$/.test(q.get('league') || '')) return fail(res, 400, { message: 'league query parameter is required (numeric ESPN league ID)' });
         if (q.has('date') && !/^\d{8}$/.test(q.get('date'))) return fail(res, 400, { message: 'date must be YYYYMMDD' });
-        if (match[2] === 'scorecard') {
+        if (match[2] === 'commentary') {
+          if (q.has('page') && !/^[1-9]\d{0,3}$/.test(q.get('page'))) return fail(res, 400, { message: 'page must be an integer from 1 to 9999' });
+          r = await getEspnCommentary(q.get('league'), match[1], Number(q.get('page') || 1));
+          result = { matchId: match[1], ...r.data };
+        } else if (match[2] === 'scorecard') {
           r = await getEspnScorecard(q.get('league'), match[1], q.get('date'));
           result = r.data;
         } else {

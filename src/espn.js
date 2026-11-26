@@ -142,3 +142,25 @@ export async function getEspnScorecard(league, id, date) {
     coverage: rows.length ? 'innings totals and available player statistics' : 'innings totals only',
   }, meta: { ...detail.meta, playerStatistics: summary.meta } };
 }
+
+export function normalizeEspnCommentary(raw) {
+  if (!raw.commentary || !Array.isArray(raw.commentary.items)) throw new UpstreamError('ESPN commentary payload missing');
+  const c = raw.commentary;
+  return {
+    page: c.pageIndex, pageSize: c.pageSize, pageCount: c.pageCount, total: c.count,
+    commentary: c.items.map((p) => ({
+      id: text(p.id), inningsId: p.innings?.number ?? p.period ?? null,
+      over: p.over?.actual ?? p.over?.overs ?? null, ball: p.over?.ball ?? null,
+      event: text(p.playType?.description), text: text(p.text || p.shortText),
+      runs: p.scoreValue ?? null, batsman: text(p.batsman?.athlete?.displayName),
+      bowler: text(p.bowler?.athlete?.displayName),
+      score: p.innings?.totalRuns != null ? `${p.innings.totalRuns}/${p.innings.wickets ?? 0}` : null,
+      wicket: !!p.dismissal?.dismissal,
+    })),
+  };
+}
+export function getEspnCommentary(league, id, page = 1) {
+  return request('espn.commentary', id,
+    `${WEB}/apis/site/v2/sports/cricket/${league}/playbyplay?event=${id}&page=${page}`,
+    normalizeEspnCommentary, TTL.commentary);
+}
