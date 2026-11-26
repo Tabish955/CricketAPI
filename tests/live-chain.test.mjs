@@ -53,3 +53,34 @@ test('shared ESPN header URL cannot cross-contaminate cached match categories', 
     assert.equal(all.data.length, mixed.events.length, 'current list must not inherit a category filter');
   } finally { globalThis.fetch = originalFetch; cacheClear(); }
 });
+
+test('expanded ESPN HTTP routes return player innings and paginated commentary in production mode', async () => {
+  cacheClear();
+  const { createServer } = await import('../src/server.js');
+  const server = createServer();
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  const stats = { categories: [{ stats: [{ name:'inningsNumber', value:2 }, { name:'batted', value:1 }, { name:'runs', value:12 }, { name:'ballsFaced', value:6 }] }] };
+  const summary = { rosters: [{ team: { id:'3' }, roster:[{ athlete: { id:'550215', displayName:'Player' }, linescores:[{ period:2, statistics:stats }] }] }] };
+  const board = JSON.parse(readFileSync(new URL('../fixtures/espn-recent.json', import.meta.url)));
+  const calls = [];
+  globalThis.fetch = async (url, opts) => {
+    if (String(url).startsWith(origin)) return originalFetch(url, opts);
+    calls.push(String(url));
+    if (String(url).includes('/summary?')) return new Response(JSON.stringify(summary));
+    if (String(url).includes('/playbyplay?')) return new Response(JSON.stringify({ commentary: { pageIndex:2, count:1, pageCount:2, items:[{ shortText:'One run', innings:{ runs:65, totalRuns:1, wickets:0 } }] } }));
+    return new Response(JSON.stringify(board));
+  };
+  try {
+    const sc = await (await fetch(`${origin}/espn/match/1525662/scorecard?league=24484&date=20261119`)).json();
+    assert.equal(sc.result.innings.find((i) => i.inningsId === 2).batsmen[0].runs,12);
+    assert.equal(sc.meta.source.playerStatistics.source,'live');
+    const commentary = await (await fetch(`${origin}/espn/match/1525662/commentary?league=24484&page=2`)).json();
+    assert.equal(commentary.result.page,2); assert.equal(commentary.result.commentary[0].score,'65/0');
+    assert.ok(calls.some((u) => u.includes('page=2')));
+    assert.equal((await fetch(`${origin}/espn/match/1525662/commentary?league=24484&page=0`)).status,400);
+    assert.equal((await fetch(`${origin}/espn/match/1525662/commentary`)).status,400);
+  } finally {
+    globalThis.fetch = originalFetch; cacheClear(); await new Promise((r) => server.close(r));
+  }
+});

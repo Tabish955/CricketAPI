@@ -46,7 +46,10 @@ export function parseCrexSchedule(html) {
   if (!matches.size) {
     const sample = $('a[href*="match-updates-"]').first();
     const shape = { title: $('title').text(), cards: cards.length,
-      sample: sample.length ? $.html(sample).slice(0, 4500) : 'no match anchors' };
+      sample: sample.length ? [sample[0], ...sample.find('*').toArray()].slice(0, 45).map((el) => ({
+        tag: el.tagName, class: $(el).attr('class'), href: $(el).attr('href'),
+        text: clean($(el).clone().children().remove().end().text()).slice(0, 100),
+      })) : 'no match anchors' };
     throw new UpstreamError(`CREX schedule markup missing or unsupported; no matches extracted; structure=${JSON.stringify(shape)}`, { url: URL });
   }
   return [...matches.values()];
