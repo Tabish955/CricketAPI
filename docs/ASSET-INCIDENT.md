@@ -87,3 +87,25 @@ red URLs, verify any replacement and browser behavior, review the resulting
 counts/HTTP headers, then obtain deployment approval. Live commentary growth,
 ID stability, and CDN hotlink/CORS guarantees remain unverified. Full field and
 operational contracts: docs/API-CONTRACTS.md.
+
+## Independent Vercel build evidence
+
+Build `dpl_ztMoSupQmCk4tW9GGkTfimscUEDz` audited stable production:
+114 unique URLs, 61 green, 53 red, zero unknown or discovery failures.
+Build `dpl_HSQwBPYQY1cpLu92fDtTZk2kpmjF` independently confirmed missing
+exact URLs with HEAD plus GET (404 text/html, one-byte bodies in inspected
+records). After build-time exclusions, candidate HTTP audit at
+2026-11-26T16:40:13.357Z: 61 URLs, all 61 green, zero red/unknown/discovery
+failures, 155 null references (occurrences, not unique teams). 50 tests passed.
+This is live-provider candidate HTTP proof from the Vercel builder, not proof
+of a published deployment. Packaging then failed for missing `public/` output;
+an empty tracked directory fixes that configuration requirement. Production
+has not been merged or promoted.
+
+Each build inventories both production and the unremediated live candidate,
+GET-confirms only HEAD404/410 URLs, writes an exact exclusion manifest into the
+function bundle, and re-audits the sanitized HTTP payload. Any remaining red,
+unknown, missing discovery or empty inventory fails the build. No nationality
+or alternative logo is guessed. Snapshot exclusions cannot guarantee future
+upstream URLs; rerun the inventory on every deployment. Full per-URL HEAD and
+GET confirmation records are in the linked Vercel build logs.
