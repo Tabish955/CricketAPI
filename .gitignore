@@ -1,2 +1,5 @@
 # Local-only adopted skill (from morluto/rea) — never push to GitHub
 .agents/
+node_modules/
+.env
+.env.*

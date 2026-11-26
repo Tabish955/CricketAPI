@@ -150,7 +150,7 @@ league ID. Supply `date=YYYYMMDD` to look up a historical league scoreboard.
 | `GET /espn/upcoming` | Scheduled matches in the current header window |
 | `GET /espn/series/:id/matches?date=YYYYMMDD` | League scoreboard |
 | `GET /espn/match/:id?league=ID&date=YYYYMMDD` | Teams, venue, innings, result and awards |
-| `GET /espn/match/:id/scorecard?league=ID&date=YYYYMMDD` | **Innings totals only**, not individual batting/bowling tables |
+| `GET /espn/match/:id/scorecard?league=ID&date=YYYYMMDD` | Innings totals plus available individual batting/bowling stats from summary rosters |
 | `GET /espn/match/:id/squads?league=ID` | Summary rosters if supplied upstream |
 | `GET /espn/standings/:id` | Team standings: played, won, lost, points, NRR |
 
@@ -161,3 +161,21 @@ does not establish reachability from Vercel: deployment verification is still
 required. Recorded ESPN responses are offline test inputs, **not a live feed**.
 The `fixtures` mode deliberately retains historical demo data and must not be
 used for a production live-score service.
+
+
+## Independent provider: CREX
+
+`GET /crex/live`, `GET /crex/recent`, `GET /crex/upcoming` parse the public SSR
+schedule at `https://crex.com/schedule`. CREX IDs are not Cricbuzz/ESPN IDs.
+Detail links point to CREX itself; no cross-provider ID guessing is performed.
+Missing dates are `null` (display-only start text is retained). Unsupported
+markup returns an upstream error, never fabricated matches or offline data.
+This adapter is initially **explicit-only**, pending deployed runtime validation;
+it does not yet participate in `/cb/*` fallback. Parser tests use synthetic
+selector-contract samples, not a captured live HTML fixture.
+
+ESPN scorecards now inspect summary roster **per-innings** statistics for runs,
+balls, boundaries, strike rate, dismissal, overs, wickets, conceded runs and
+economy. Coverage is explicitly reported; if summary fails the response preserves
+scoreboard innings totals with a warning. No career totals or nested per-over
+records are mixed into innings statistics.
