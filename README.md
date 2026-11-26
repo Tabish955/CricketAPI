@@ -4,6 +4,20 @@ A personal Node.js cricket API that aggregates **Cricbuzz** (modern web-app API 
 
 > **Disclaimer:** This project is for **educational purposes only**. **Commercial or business use is prohibited.** It reverse-engineers publicly served endpoints for personal study; you are responsible for respecting the terms of service and rate limits of any upstream site.
 
+## Extended scorecards and additional standings (branch changes)
+
+The ESPN scorecard now preserves upstream `extras`, `fallOfWickets` and
+`partnerships` on each innings; unavailable sections are `null`, not fabricated
+zeroes. ESPN standings retain logos, nested groups and display statistics.
+
+An experimental independent standings route is available at
+`GET /sportskeeda/series/:slug/points-table` (e.g. `syed-mushtaq-ali-trophy`).
+It never guesses cross-provider IDs and explicitly returns `seasonVerified: false`:
+a dynamic public table is not proof of current-season freshness.
+
+See [research, contracts and verification limits](docs/INNINGS-AND-STANDINGS-RESEARCH.md).
+Source fields have been inspected; new deployed behavior still needs a live smoke test.
+
 ## Quick start
 
 ```bash

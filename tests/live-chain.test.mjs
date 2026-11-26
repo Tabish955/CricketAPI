@@ -62,6 +62,12 @@ test('expanded ESPN HTTP routes return player innings and paginated commentary i
   const origin = `http://127.0.0.1:${server.address().port}`;
   const stats = { categories: [{ stats: [{ name:'inningsNumber', value:2 }, { name:'batted', value:1 }, { name:'runs', value:12 }, { name:'ballsFaced', value:6 }] }] };
   const summary = { rosters: [{ team: { id:'3' }, roster:[{ athlete: { id:'550215', displayName:'Player' }, linescores:[{ period:2, statistics:stats }] }] }] };
+  summary.header = { competitions:[{ competitors:[{ team:{ id:'3' }, linescores:[{
+    period:2, isBatting:true,
+    statistics:{ categories:[{ stats:[{ name:'extras', value:'2' }, {name:'wides',value:'2'}] }] },
+    fow:[{ wicketNumber:1, wicketOver:1.1, runs:1, athlete:{ id:'x', displayName:'Batter' } }],
+    partnerships:[{ wicketNumber:1, runs:1, overs:1.1, batsmen:[] }],
+  }] }] }] };
   const board = JSON.parse(readFileSync(new URL('../fixtures/espn-recent.json', import.meta.url)));
   const calls = [];
   globalThis.fetch = async (url, opts) => {
@@ -75,6 +81,10 @@ test('expanded ESPN HTTP routes return player innings and paginated commentary i
     const sc = await (await fetch(`${origin}/espn/match/1525662/scorecard?league=24484&date=20261119`)).json();
     assert.equal(sc.result.innings.find((i) => i.inningsId === 2).batsmen[0].runs,12);
     assert.equal(sc.meta.source.playerStatistics.source,'live');
+    const inn = sc.result.innings.find((i) => i.inningsId === 2);
+    assert.equal(inn.extras.total,2);
+    assert.equal(inn.fallOfWickets[0].batsman.name,'Batter');
+    assert.equal(inn.partnerships[0].runs,1);
     const commentary = await (await fetch(`${origin}/espn/match/1525662/commentary?league=24484&page=2`)).json();
     assert.equal(commentary.result.page,2); assert.equal(commentary.result.commentary[0].score,'65/0');
     assert.ok(calls.some((u) => u.includes('page=2')));
@@ -99,4 +109,27 @@ test('independent CREX source is used when Cricbuzz, Cricinfo and ESPN fail', as
     assert.equal(r.meta.upstreamErrors.length,3);
     assert.deepEqual(calls.map((u) => new URL(u).hostname), ['www.cricbuzz.com','hs-consumer-api.espncricinfo.com','site.api.espn.com','crex.com']);
   } finally { globalThis.fetch = originalFetch; cacheClear(); }
+});
+
+test('Sportskeeda HTTP standings route uses its own fixed origin, cache and provenance', async () => {
+  cacheClear();
+  const { createServer } = await import('../src/server.js');
+  const server = createServer();
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  const calls = [];
+  globalThis.fetch = async (url, opts) => {
+    if (String(url).startsWith(origin)) return originalFetch(url, opts);
+    calls.push(String(url));
+    return new Response('<h1>Table</h1><table><tr><th>Pos</th><th>Teams</th><th>P</th><th>PTS</th></tr><tr><td>1</td><td>A</td><td>1</td><td>2</td></tr></table>');
+  };
+  try {
+    const r = await (await fetch(`${origin}/sportskeeda/series/syed-mushtaq-ali-trophy/points-table`)).json();
+    assert.equal(r.result.groups[0].entries[0].stats.matchPoints,2);
+    assert.equal(r.result.seasonVerified,false);
+    assert.equal(r.meta.source.source,'live');
+    assert.deepEqual(calls,['https://www.sportskeeda.com/go/syed-mushtaq-ali-trophy/points-table']);
+    const again = await (await fetch(`${origin}/sportskeeda/series/syed-mushtaq-ali-trophy/points-table`)).json();
+    assert.equal(again.meta.source.cached,true);
+  } finally { globalThis.fetch = originalFetch; cacheClear(); await new Promise((r) => server.close(r)); }
 });

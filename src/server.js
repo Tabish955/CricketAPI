@@ -1,3 +1,4 @@
+import { getSportskeedaStandings } from './sportskeeda.js';
 import { getCrexMatches } from './crex.js';
 import { getEspnMatches, getEspnSeries, getEspnMatch, getEspnStandings, getEspnScorecard, getEspnCommentary, normalizeEspnSquads } from './espn.js';
 // CricketAPI — zero-dependency Node HTTP server.
@@ -494,6 +495,7 @@ export async function handler(req, res) {
           'GET /espn/match/:id/squads?league=ID',
           'GET /espn/series/:id/matches?date=YYYYMMDD',
           'GET /espn/standings/:id',
+          'GET /sportskeeda/series/:slug/points-table',
           'GET /cb/live',
           'GET /cb/recent',
           'GET /cb/upcoming',
@@ -537,6 +539,12 @@ export async function handler(req, res) {
       return send(res, 200, { success: true, result: { found: r.data.length > 0, count: r.data.length,
         matches: r.data.map((m) => ({ ...presentMatch(m, origin), startTimeText: m.startTimeText })) },
         meta: { dataMode: DATA_MODE, source: r.meta } });
+    }
+
+    const skStandings = path.match(/^\/sportskeeda\/series\/([a-z0-9-]{1,100})\/points-table$/);
+    if (skStandings) {
+      const r = await getSportskeedaStandings(skStandings[1]);
+      return send(res, 200, { success: true, result: r.data, meta: { dataMode: DATA_MODE, source: r.meta } });
     }
 
     // --- Public ESPN scoreboard API (IDs are ESPN IDs, not Cricbuzz IDs) ---

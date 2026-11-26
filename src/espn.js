@@ -81,11 +81,57 @@ export async function getEspnMatch(league, id, date, squads = false) {
   if (!match) throw new UpstreamError('match not found in league scoreboard; supply date=YYYYMMDD for historical matches', { status: 404 });
   return { data: match, meta: result.meta };
 }
+export function normalizeEspnStandings(raw, league) {
+  const groups = [];
+  function visit(node) {
+    if (Array.isArray(node.standings?.entries)) groups.push({
+      id: text(node.id), name: text(node.name || node.standings.displayName),
+      season: node.standings.season ?? null,
+      entries: node.standings.entries.map((e) => ({
+        team: { id: text(e.team?.id), name: text(e.team?.displayName), short: text(e.team?.abbreviation), imageUrl: e.team?.logos?.[0]?.href || '' },
+        stats: Object.fromEntries((e.stats || []).filter((s) => s.value != null && s.value !== '').map((s) => [s.name, s.value])),
+        displayStats: Object.fromEntries((e.stats || []).filter((s) => s.displayValue != null).map((s) => [s.name, s.displayValue])),
+      })),
+    });
+    for (const child of node.children || []) visit(child);
+  }
+  visit(raw);
+  return { leagueId: league, name: text(raw.name), season: raw.season || null, groups };
+}
 export function getEspnStandings(league) {
-  return request('espn.standings', league, `${SITE}/apis/v2/sports/cricket/${league}/standings`, (raw) => ({
-    leagueId: league, season: raw.season || null,
-    groups: (raw.children || []).map((g) => ({ name: g.name, entries: (g.standings?.entries || []).map((e) => ({ team: { id: e.team.id, name: e.team.displayName, short: e.team.abbreviation }, stats: Object.fromEntries((e.stats || []).filter((s) => s.value != null).map((s) => [s.name, s.value])) })) })),
-  }), TTL.pointsTable);
+  return request('espn.standings', league, `${SITE}/apis/v2/sports/cricket/${league}/standings`,
+    (raw) => normalizeEspnStandings(raw, league), TTL.pointsTable);
+}
+
+const numberOrNull = (v) => v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v);
+
+/** Observed summary.header.competitions[].competitors[].linescores[] fields.
+ * Never infer missing sections from a partial commentary page or bowling sums.
+ */
+export function normalizeEspnInningsDetails(raw) {
+  return (raw.header?.competitions || []).flatMap((c) => (c.competitors || []).flatMap((side) =>
+    (side.linescores || []).filter((line) => line.isBatting === true).map((line) => {
+      const stats = Object.fromEntries((line.statistics?.categories || []).flatMap((c) => c.stats || []).map((s) => [s.name, s.value]));
+      const extras = { total: numberOrNull(stats.extras), byes: numberOrNull(stats.byes),
+        legByes: numberOrNull(stats.legbyes), wides: numberOrNull(stats.wides),
+        noBalls: numberOrNull(stats.noballs), penalties: numberOrNull(stats.penalties) };
+      const endpoint = (v) => v ? { overs: text(v.overs), runs: numberOrNull(v.runs), wickets: numberOrNull(v.wickets) } : null;
+      return { inningsId: Number(line.period), teamId: text(side.team?.id || side.id),
+        extras: Object.values(extras).some((v) => v !== null) ? extras : null,
+        fallOfWickets: Array.isArray(line.fow) ? line.fow.map((w) => ({
+          wicketNumber: numberOrNull(w.wicketNumber), overs: text(w.wicketOver),
+          runs: numberOrNull(w.runs), type: text(w.fowType),
+          batsman: { id: text(w.athlete?.id), name: text(w.athlete?.displayName || w.athlete?.name) },
+          batsmanRuns: numberOrNull(w.runsScored), ballsFaced: numberOrNull(w.ballsFaced),
+        })) : null,
+        partnerships: Array.isArray(line.partnerships) ? line.partnerships.map((p) => ({
+          wicketNumber: numberOrNull(p.wicketNumber), type: text(p.fowType),
+          runs: numberOrNull(p.runs), overs: text(p.overs), runRate: numberOrNull(p.runRate),
+          start: endpoint(p.start), end: endpoint(p.end),
+          batsmen: (p.batsmen || []).map((b) => ({ id: text(b.athlete?.id), name: text(b.athlete?.displayName || b.athlete?.name), runs: numberOrNull(b.runs), balls: numberOrNull(b.balls) })),
+        })) : null,
+      };
+    })));
 }
 
 /** Match-specific statistics live on roster[].linescores[], not career totals.
@@ -130,11 +176,13 @@ export async function getEspnScorecard(league, id, date) {
   let summary;
   try { summary = await getEspnRosters(league, id, true); }
   catch (err) {
-    return { data: { matchId: id, innings: detail.data.scores, coverage: 'innings totals only', warnings: [err.message] }, meta: detail.meta };
+    return { data: { matchId: id, innings: detail.data.scores.map((i) => ({ ...i, extras: null, fallOfWickets: null, partnerships: null })), coverage: 'innings totals only', warnings: [err.message] }, meta: detail.meta };
   }
   const rows = normalizeEspnPlayerInnings(summary.data.teams);
   const totals = detail.data.scores;
+  const sections = summary.data.inningsDetails || [];
   const innings = totals.map((total) => ({ ...total,
+    ...(sections.find((i) => i.inningsId === total.inningsId) || { extras: null, fallOfWickets: null, partnerships: null }),
     batsmen: rows.find((i) => i.inningsId === total.inningsId)?.batsmen || [],
     bowlers: rows.find((i) => i.inningsId === total.inningsId)?.bowlers || [],
   }));
@@ -186,7 +234,7 @@ function getEspnRosters(league, id, statistics = false) {
   return request(statistics ? 'espn.playerStats' : 'espn.squads', id,
     `${WEB}/apis/site/v2/sports/cricket/${league}/summary?event=${id}&lang=en&region=in`,
     (raw) => {
-      if (!Array.isArray(raw.rosters)) throw new UpstreamError('ESPN summary rosters missing');
-      return { matchId: id, teams: raw.rosters };
+      if (!Array.isArray(raw.rosters) && !(statistics && raw.header?.competitions)) throw new UpstreamError('ESPN summary rosters missing');
+      return { matchId: id, teams: raw.rosters || [], inningsDetails: statistics ? normalizeEspnInningsDetails(raw) : undefined };
     }, statistics ? TTL.liveScore : TTL.squads);
 }
