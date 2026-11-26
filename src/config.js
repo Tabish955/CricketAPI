@@ -5,7 +5,7 @@ export const PORT = Number(process.env.PORT || 3000);
 
 // live      -> always hit upstreams
 // fixtures  -> never hit upstreams, serve recorded fixtures (offline demo/tests)
-// auto      -> try live, fall back to fixtures when the upstream is unreachable
+// auto      -> try current providers; never substitute recorded data
 export const DATA_MODE = (process.env.DATA_MODE || 'auto').toLowerCase();
 if (!['live', 'fixtures', 'auto'].includes(DATA_MODE)) {
   throw new Error(`DATA_MODE must be live|fixtures|auto, got ${DATA_MODE}`);

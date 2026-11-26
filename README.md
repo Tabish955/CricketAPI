@@ -7,7 +7,7 @@ A personal, zero-dependency Node.js cricket API that aggregates **Cricbuzz** (mo
 ## Quick start
 
 ```bash
-npm start              # live mode: fetch upstreams, fall back to recorded fixtures
+npm start              # auto mode: fetch current upstreams; no recorded-data fallback
 npm run start:fixtures # fixtures mode: serve only the recorded corpus (no network)
 npm test               # run the test suite against the fixture corpus
 ```
@@ -77,13 +77,13 @@ fixture files from the bundle.
 | `GET /` | Endpoint index + available fixture ids |
 | `GET /img?u=<url>` | Image proxy, restricted to an allowlist of Cricbuzz/ESPN image hosts |
 
-Every response carries `meta.source` (`live` or `fixture`) so you can always tell which path served it. In `auto` mode, live failures fall back to the recorded corpus and the fallback reason is reported in `meta`.
+Every response carries `meta.source` (`live` or `fixture`) so you can always tell which path served it. In `auto` and `live` modes, failures never fall back to the recorded corpus. List routes try Cricbuzz → Cricinfo → ESPN public scoreboards; if all fail, the API returns an upstream error.
 
 ## Data modes
 
 | Mode | Behaviour |
 | --- | --- |
-| `auto` (default) | Try live upstreams (timeout + retry), fall back to fixtures on failure |
+| `auto` (default) | Try current upstreams; return an error if all fail (never recordings) |
 | `live` | Live only; never serve fixtures |
 | `fixtures` | Recorded corpus only; missing fixtures answer `404 NO_FIXTURE` instead of fabricating data |
 
@@ -121,7 +121,7 @@ src/
   http.js        # timeout/retry fetch, JSONP stripper, UpstreamError
   fixtures.js    # recorded-response registry (exact-id + flagged substitution)
   normalize.js   # all payload → unified-shape normalizers
-  providers.js   # upstream calls with live→fixture fallback chain
+  providers.js   # upstream calls with live provider fallback chain
   server.js      # zero-dependency HTTP router
 fixtures/        # recorded upstream responses (see docs/REVERSE-ENGINEERING.md)
 tests/           # node:test suite running against the fixture corpus
@@ -137,3 +137,27 @@ docs/            # reverse-engineering notes: endpoints, shapes, provenance
 ## License / usage
 
 UNLICENSED — personal educational project. **Commercial or business use is prohibited.**
+
+## Public ESPN endpoints
+
+These routes use ESPN IDs (not Cricbuzz IDs). Match links include the required
+league ID. Supply `date=YYYYMMDD` to look up a historical league scoreboard.
+
+| Endpoint | Coverage |
+| --- | --- |
+| `GET /espn/live` | Currently in-progress matches from the multi-league header |
+| `GET /espn/recent` | Completed matches in the current header window |
+| `GET /espn/upcoming` | Scheduled matches in the current header window |
+| `GET /espn/series/:id/matches?date=YYYYMMDD` | League scoreboard |
+| `GET /espn/match/:id?league=ID&date=YYYYMMDD` | Teams, venue, innings, result and awards |
+| `GET /espn/match/:id/scorecard?league=ID&date=YYYYMMDD` | **Innings totals only**, not individual batting/bowling tables |
+| `GET /espn/match/:id/squads?league=ID` | Summary rosters if supplied upstream |
+| `GET /espn/standings/:id` | Team standings: played, won, lost, points, NRR |
+
+No ESPN commentary endpoint has been verified. Header coverage is a current
+window, not a full cricket calendar; an empty list is possible. ESPN data is
+fetched at request time and cached briefly. Reachability from research tooling
+does not establish reachability from Vercel: deployment verification is still
+required. Recorded ESPN responses are offline test inputs, **not a live feed**.
+The `fixtures` mode deliberately retains historical demo data and must not be
+used for a production live-score service.

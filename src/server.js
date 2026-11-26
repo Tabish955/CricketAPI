@@ -1,3 +1,4 @@
+import { getEspnMatches, getEspnSeries, getEspnMatch, getEspnStandings } from './espn.js';
 // CricketAPI — zero-dependency Node HTTP server.
 // Route surface mirrors the reference CricBuzz proxy API and adds the extra
 // upstreams we reverse-engineered (legacy mapps API, ESPNcricinfo).
@@ -55,7 +56,14 @@ function baseUrl(req) {
   return `${proto}://${host}`;
 }
 
-function linkSet(origin, matchId) {
+function linkSet(origin, matchId, match) {
+  if (match?.source === 'espn-site') {
+    const date = match.startDate ? new Date(match.startDate).toISOString().slice(0,10).replaceAll('-', '') : '';
+    const query = `?league=${encodeURIComponent(match.series.id)}&date=${date}`;
+    const base = `${origin}/espn/match/${matchId}`;
+    return { detail: base + query, scorecard: base + '/scorecard' + query, squads: base + '/squads' + query, upstream: match.upstream };
+  }
+  if (match?.source === 'espncricinfo') return { detail: `${origin}/cricinfo/match/${matchId}?seriesId=${encodeURIComponent(match.series.id)}` };
   return {
     detail: `${origin}/cb/match/${matchId}`,
     scorecard: `${origin}/cb/match/${matchId}/scorecard`,
@@ -86,7 +94,7 @@ function presentMatch(m, origin) {
     team1: m.team1,
     team2: m.team2,
     ...(m.batsman ? { batsman: m.batsman, bowler: m.bowler } : {}),
-    ...linkSet(origin, m.matchId),
+    ...linkSet(origin, m.matchId, m),
     source: m.source,
   };
 }
@@ -109,7 +117,7 @@ async function handleCbList(req, res, kind, origin, q) {
   }
 
   const byId = new Map(matches.map((m) => [m.matchId, m]));
-  if (secondary) {
+  if (secondary && (primary.meta.source === 'fixture' || secondary.meta.source === 'live')) {
     for (const m of secondary.data) {
       if (!byId.has(m.matchId)) byId.set(m.matchId, m);
     }
@@ -186,7 +194,7 @@ async function handleSearch(req, res, origin, q) {
         teams: m.teams,
         status: m.status,
         live: m.live,
-        detail: `${origin}/cb/match/${m.matchId}`,
+        detail: linkSet(origin, m.matchId, m).detail,
         series: m.series?.name || '',
       })),
     },
@@ -471,6 +479,14 @@ export async function handler(req, res) {
         dataMode: DATA_MODE,
         endpoints: [
           'GET /health',
+          'GET /espn/live',
+          'GET /espn/recent',
+          'GET /espn/upcoming',
+          'GET /espn/match/:id?league=ID&date=YYYYMMDD',
+          'GET /espn/match/:id/scorecard?league=ID&date=YYYYMMDD',
+          'GET /espn/match/:id/squads?league=ID',
+          'GET /espn/series/:id/matches?date=YYYYMMDD',
+          'GET /espn/standings/:id',
           'GET /cb/live',
           'GET /cb/recent',
           'GET /cb/upcoming',
@@ -495,6 +511,33 @@ export async function handler(req, res) {
     }
     if (path === '/health') {
       return send(res, 200, { success: true, status: 'ok', dataMode: DATA_MODE, uptime: process.uptime() });
+    }
+
+    // --- Public ESPN scoreboard API (IDs are ESPN IDs, not Cricbuzz IDs) ---
+    if (path.startsWith('/espn/')) {
+      let r, result;
+      const list = path.match(/^\/espn\/(live|recent|upcoming)$/);
+      const series = path.match(/^\/espn\/series\/(\d+)\/matches$/);
+      const standings = path.match(/^\/espn\/standings\/(\d+)$/);
+      const match = path.match(/^\/espn\/match\/(\d+)(?:\/(scorecard|squads))?$/);
+      if (list) {
+        r = await getEspnMatches(list[1]);
+        result = { found: r.data.length > 0, count: r.data.length, matches: r.data.map((m) => presentMatch(m, origin)) };
+      } else if (series) {
+        if (q.has('date') && !/^\d{8}$/.test(q.get('date'))) return fail(res, 400, { message: 'date must be YYYYMMDD' });
+        r = await getEspnSeries(series[1], q.get('date'));
+        result = { count: r.data.length, matches: r.data.map((m) => presentMatch(m, origin)) };
+      } else if (standings) {
+        r = await getEspnStandings(standings[1]); result = r.data;
+      } else if (match) {
+        if (!/^\d+$/.test(q.get('league') || '')) return fail(res, 400, { message: 'league query parameter is required (numeric ESPN league ID)' });
+        if (q.has('date') && !/^\d{8}$/.test(q.get('date'))) return fail(res, 400, { message: 'date must be YYYYMMDD' });
+        r = await getEspnMatch(q.get('league'), match[1], q.get('date'), match[2] === 'squads');
+        result = match[2] === 'squads' ? r.data : match[2] === 'scorecard'
+          ? { matchId: match[1], innings: r.data.scores, coverage: 'innings totals only; individual batting/bowling statistics not available in scoreboard' }
+          : { found: true, match: { ...r.data, ...linkSet(origin, match[1], r.data) } };
+      } else return fail(res, 404, { message: 'unknown ESPN route' });
+      return send(res, 200, { success: true, result, meta: { dataMode: DATA_MODE, source: r.meta } });
     }
 
     // --- Cricbuzz ---
