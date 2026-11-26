@@ -154,7 +154,8 @@ export function normalizeEspnCommentary(raw) {
       event: text(p.playType?.description), text: text(p.text || p.shortText),
       runs: p.scoreValue ?? null, batsman: text(p.batsman?.athlete?.displayName),
       bowler: text(p.bowler?.athlete?.displayName),
-      score: p.innings?.totalRuns != null ? `${p.innings.totalRuns}/${p.innings.wickets ?? 0}` : null,
+      // In this feed totalRuns is the delivery contribution; runs is cumulative.
+      score: p.innings?.runs != null ? `${p.innings.runs}/${p.innings.wickets ?? 0}` : null,
       wicket: !!p.dismissal?.dismissal,
     })),
   };

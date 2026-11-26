@@ -43,7 +43,12 @@ export function parseCrexSchedule(html) {
       upstream: upstream.href, source: 'crex',
     });
   }
-  if (!matches.size) throw new UpstreamError('CREX schedule markup missing or unsupported; no matches extracted', { url: URL });
+  if (!matches.size) {
+    const sample = $('a[href*="match-updates-"]').first();
+    const shape = { title: $('title').text(), cards: cards.length,
+      sample: sample.length ? $.html(sample).slice(0, 4500) : 'no match anchors' };
+    throw new UpstreamError(`CREX schedule markup missing or unsupported; no matches extracted; structure=${JSON.stringify(shape)}`, { url: URL });
+  }
   return [...matches.values()];
 }
 export async function getCrexMatches(kind) {

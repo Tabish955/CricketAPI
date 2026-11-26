@@ -37,7 +37,7 @@ test('ESPN player innings: distinguish batting, bowling and fielding, no nested 
 
 test('ESPN commentary normalizes short ball text, score and wicket without inventing data', async () => {
   const { normalizeEspnCommentary } = await import('../src/espn.js');
-  const r = normalizeEspnCommentary({ commentary: { count: 1, pageIndex: 1, pageCount: 1, pageSize: 25, items: [{ id: '110', shortText: 'Bowler to Batter, OUT', playType: { description: 'wicket' }, innings: { number: 2, totalRuns: 100, wickets: 3 }, over: { actual: 12.1, ball: 1 }, dismissal: { dismissal: true } }] } });
+  const r = normalizeEspnCommentary({ commentary: { count: 1, pageIndex: 1, pageCount: 1, pageSize: 25, items: [{ id: '110', shortText: 'Bowler to Batter, OUT', playType: { description: 'wicket' }, innings: { number: 2, runs: 100, totalRuns: 0, wickets: 3 }, over: { actual: 12.1, ball: 1 }, dismissal: { dismissal: true } }] } });
   assert.equal(r.commentary[0].text,'Bowler to Batter, OUT');
   assert.equal(r.commentary[0].score,'100/3'); assert.equal(r.commentary[0].wicket,true);
   assert.equal(r.commentary[0].runs,null); assert.equal(r.page,1);
