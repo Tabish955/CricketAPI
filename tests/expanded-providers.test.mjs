@@ -43,3 +43,10 @@ test('ESPN commentary normalizes short ball text, score and wicket without inven
   assert.equal(r.commentary[0].runs,null); assert.equal(r.page,1);
   assert.throws(() => normalizeEspnCommentary({}),/missing/);
 });
+
+test('CREX observed schedule uses anchor cards and direct result spans', () => {
+  const wrap = (id, result) => `<a class="match-card-wrapper" href="/cricket-live-score/a-vs-b-match-updates-${id}"><div class="team-info"><span class="team-name">A</span><span class="team-score">123</span></div><div class="result">${result}</div><div class="team-info"><span class="team-name">B</span><span class="team-score">100</span></div></a>`;
+  const rows = parseCrexSchedule(wrap('AA','<span>A Won</span><span class="reason">97th T20</span>') + wrap('BB','<span>Live</span>') + wrap('CC','<span>3:00 AM</span><span>1st Test</span>'));
+  assert.deepEqual(rows.map((m) => m.category), ['recent','live','upcoming']);
+  assert.equal(rows[0].status,'A Won'); assert.equal(rows[2].startTimeText,'3:00 AM');
+});

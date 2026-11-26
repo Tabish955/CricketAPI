@@ -10,10 +10,11 @@ export function parseCrexSchedule(html) {
   const $ = load(html);
   let cards = $('app-match-card');
   if (!cards.length) cards = $('div.match-card-container');
+  if (!cards.length) cards = $('a.match-card-wrapper[href*="match-updates-"]');
   const matches = new Map();
   for (const el of cards) {
     const card = $(el);
-    const href = card.find('a.match-card-wrapper, a[href*="/cricket-live-score/"]').first().attr('href');
+    const href = (card.is('a') ? card : card.find('a.match-card-wrapper, a[href*="/cricket-live-score/"]').first()).attr('href');
     if (!href) continue;
     let upstream;
     try { upstream = new globalThis.URL(href, URL); } catch { continue; }
@@ -27,10 +28,12 @@ export function parseCrexSchedule(html) {
     })).filter((t) => t.name);
     if (teams.length !== 2) continue;
     const result = card.find('div.result');
-    const note = clean(result.find('div.notes, span.result-text').first().text());
-    const start = clean(card.find('div.start-text, span.start-text').first().text());
+    const note = clean(result.find('div.notes, span.result-text').first().text())
+      || clean(result.children('span').first().text());
+    const start = clean(card.find('div.start-text, span.start-text').first().text())
+      || ( /\b\d{1,2}:\d{2}\b/.test(result.text()) ? clean(result.children().first().text() || result.text()) : '');
     const category = /\b(won|drawn|tied|abandoned|no result)\b/i.test(note) ? 'recent'
-      : result.hasClass('live') || card.find('span.liveTag').length ? 'live' : start ? 'upcoming' : null;
+      : result.hasClass('live') || card.find('span.liveTag').length || /^live$/i.test(note) ? 'live' : start ? 'upcoming' : null;
     // Unknown markup/status is not a scheduled match by default.
     if (!category) continue;
     const team = (t) => ({ id: '', name: t.name, short: t.name });
@@ -43,15 +46,7 @@ export function parseCrexSchedule(html) {
       upstream: upstream.href, source: 'crex',
     });
   }
-  if (!matches.size) {
-    const sample = $('a[href*="match-updates-"]').first();
-    const shape = { title: $('title').text(), cards: cards.length,
-      sample: sample.length ? [sample[0], ...sample.find('*').toArray()].slice(0, 45).map((el) => ({
-        tag: el.tagName, class: $(el).attr('class'), href: $(el).attr('href'),
-        text: clean($(el).clone().children().remove().end().text()).slice(0, 100),
-      })) : 'no match anchors' };
-    throw new UpstreamError(`CREX schedule markup missing or unsupported; no matches extracted; structure=${JSON.stringify(shape)}`, { url: URL });
-  }
+  if (!matches.size) throw new UpstreamError('CREX schedule markup missing or unsupported; no matches extracted', { url: URL });
   return [...matches.values()];
 }
 export async function getCrexMatches(kind) {
