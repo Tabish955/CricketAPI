@@ -9,11 +9,17 @@
   ],
   "functions": {
     "api/index.js": {
-      "includeFiles": "fixtures/**",
+      "includeFiles": [
+        "fixtures/**",
+        "src/verified-asset-exclusions.json"
+      ],
       "maxDuration": 60
     },
     "api/[...path].js": {
-      "includeFiles": "fixtures/**",
+      "includeFiles": [
+        "fixtures/**",
+        "src/verified-asset-exclusions.json"
+      ],
       "maxDuration": 60
     }
   },

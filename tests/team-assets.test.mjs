@@ -73,3 +73,12 @@ test('HTTP boundary returns remediated assets and JSON errors with explicit no-s
     }
   } finally { await new Promise(r=>server.close(r)); }
 });
+
+test('build exclusions require HEAD404/410 and GET404/410, never access errors or a recovered image',async()=>{
+  const {confirmDeadAssets}=await import('../scripts/confirm-dead-assets.mjs');
+  const results=[404,410,403,429].map((status)=>({url:`https://example.org/${status}`,status,ids:[],names:[]}));
+  const dead=await confirmDeadAssets({results},async()=>new Response(' ',{status:404,headers:{'content-type':'text/html'}}));
+  assert.equal(dead.length,2);assert.equal(dead[0].negativeBodyBytes,1);
+  assert.equal((await confirmDeadAssets({results},async()=>new Response('image',{status:200}))).length,0);
+  assert.equal((await confirmDeadAssets({results},async()=>{throw Error('network')})).length,0);
+});

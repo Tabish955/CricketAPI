@@ -1,9 +1,16 @@
+import { readFileSync } from 'node:fs';
+const verifiedExclusions = JSON.parse(readFileSync(new URL('./verified-asset-exclusions.json', import.meta.url), 'utf8'));
 // Exact dead references reported by the consuming production origin on 2026-11-26.
 // These are URL exclusions, NOT a remapping of provider IDs. No substitute is guessed.
 export const rejectedCrests = new Map(['1346027', '1336141', '1336151', '3161'].map((id) => [
   `https://a.espncdn.com/i/teamlogos/cricket/500/${id}.png`,
   { id, status: 404, evidence: 'Cricline production-origin probes supplied by user, 2026-11-26; not independently reproduced in sandbox' },
 ]));
+
+export function applyVerifiedExclusions(entries) {
+  for (const entry of entries) rejectedCrests.set(entry.url, entry);
+}
+applyVerifiedExclusions(verifiedExclusions);
 
 export function teamAssets(team) {
   if (!team || typeof team !== 'object') return team;
