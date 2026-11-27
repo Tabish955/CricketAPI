@@ -1,3 +1,4 @@
+import {reportFlagCoverage} from './flag-coverage.mjs';
 import { nationalFlag, flagCandidates } from '../src/national-flags.js';
 import { inspectAsset } from './validate-team-assets.mjs';
 import { writeFile } from 'node:fs/promises';
@@ -40,6 +41,7 @@ try {
   for (const item of Object.values(validations)) console.log('ASSET_VALIDATION '+JSON.stringify(item));
   const candidate=await auditAssets({base,extraPaths,extraStandings:['/espn/standings/20921']});
   printReport('candidate-after',candidate);
+  await reportFlagCoverage({candidate,validations,base});
   await writeFile('asset-verification.json',JSON.stringify({baseline,preflight,validations,candidate},null,2)+'\n');
   const samples=[];
   for (const path of ['/cb/live','/espn/match/1562355?league=1562333&date=20261127']) {
