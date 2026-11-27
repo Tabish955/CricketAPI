@@ -27,3 +27,9 @@ test('strict transport status, scheme, MIME and actual size checks',async()=>{
     ['https://example.org/a',200,'image/png','x'.repeat(204801)],
   ]) assert.notEqual((await inspectAsset(url,async()=>new Response(body,{status,headers:{'content-type':mime}}))).verdict,'green');
 });
+
+test('Indonesia women and combined national variants map explicitly',()=>{
+  for(const name of ['Indonesia Women','IDN-W','Indonesia Under-19s Women','IDN-W-U19','Indonesia A','Indonesia XI']) assert.equal(nationalFlag({name}),'https://flagcdn.com/w40/id.png');
+  for(const [name,code] of [['Malaysia Women','my'],['India A','in'],['Pakistan A','pk'],['Zimbabwe A','zw'],['New Zealand','nz'],['England','gb-eng'],['Scotland','gb-sct'],['Wales','gb-wls'],['Nepal','np'],['United Arab Emirates','ae'],['Afghanistan','af'],['Sri Lanka','lk']]) assert.equal(nationalFlag({name}),`https://flagcdn.com/w40/${code}.png`);
+  for(const name of ['West Indies','West Indies Women','WI-A','Indonesia Tigers','Malaysia Region']) assert.equal(nationalFlag({name}),null);
+});

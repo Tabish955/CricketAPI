@@ -29,3 +29,4 @@ jobs:
             asset-samples.json
             asset-validation.log
             asset-null-teams.json
+            flag-coverage.json
