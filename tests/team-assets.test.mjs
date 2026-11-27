@@ -1,8 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { inspectAsset, auditAssets, extractAssets } from '../scripts/validate-team-assets.mjs';
-import { teamAssets, sanitizeTeamPayload, rejectedCrests } from '../src/team-assets.js';
+import { applyValidatedAssets, teamAssets, sanitizeTeamPayload, rejectedCrests } from '../src/team-assets.js';
 import { normalizeEspnEvent } from '../src/espn.js';
+
+applyValidatedAssets({'https://a.espncdn.com/i/teamlogos/cricket/500/1781.png':{verdict:'green'}});
 
 test('reported exact dead URLs become null, no ID/path guessing or player portrait rewriting', () => {
   for (const url of rejectedCrests.keys()) assert.equal(teamAssets({ imageUrl:url }).imageUrl,null);
@@ -21,13 +23,13 @@ test('ambiguous score names never get guessed IDs; innings provider IDs are reta
   const m = normalizeEspnEvent({id:'m',competitions:[{competitors:[{team:{id:'2',abbreviation:'A'},linescores:[{period:1,isBatting:true,runs:0,wickets:0,overs:0,description:'declared'}]}]}]});
   assert.equal(m.scores[0].teamId,'2'); assert.equal(m.scores[0].declared,true);
 });
-test('HEAD validation distinguishes red from unknown and records advertised bytes/headers', async () => {
+test('GET validation measures bytes and fails closed', async () => {
   const ok = await inspectAsset('https://example.org/ok',async (_,opts) => {
-    assert.equal(opts.method,'HEAD');
-    return new Response(null,{status:200,headers:{'content-type':'image/png','content-length':'10376','cache-control':'public,max-age=60'}});
+    assert.equal(opts.method,'GET');
+    return new Response('png',{status:200,headers:{'content-type':'image/png','content-length':'10376','cache-control':'public,max-age=60'}});
   });
-  assert.equal(ok.verdict,'green'); assert.equal(ok.advertisedBytes,10376); assert.equal(ok.actualBytes,null);
-  for (const [status,type,expected] of [[404,'text/html','red'],[200,'text/html','red'],[429,'text/html','unknown'],[405,'text/html','unknown']]) {
+  assert.equal(ok.verdict,'green'); assert.equal(ok.advertisedBytes,10376); assert.equal(ok.actualBytes,3);
+  for (const [status,type,expected] of [[404,'text/html','red'],[200,'text/html','red'],[429,'text/html','red'],[405,'text/html','red']]) {
     const r=await inspectAsset('https://example.org/a',async()=>new Response(null,{status,headers:{'content-type':type}}));
     assert.equal(r.verdict,expected);
   }
@@ -45,7 +47,7 @@ test('audit gate rejects incomplete discovery and cannot pass on an empty invent
 });
 test('candidate audit traverses discovered standings and exposes green/red/unknown counts',async()=>{
   const r=await auditAssets({base:'https://example.org',transport:async(url,opts)=>{
-    if(opts?.method==='HEAD') return new Response(null,{headers:{'content-type':'image/png'}});
+    if(opts?.method==='GET') return new Response('png',{headers:{'content-type':'image/png'}});
     if(String(url).includes('/standings/')) return new Response(JSON.stringify({success:true,result:{groups:[{entries:[{team:{id:'2',imageUrl:'https://cdn.example/2'}}]}]}}));
     return new Response(JSON.stringify({success:true,result:{matches:[{detail:'https://example.org/espn/match/1?league=8661',team1:{id:'1',imageUrl:'https://cdn.example/1'}}]}}));
   }});

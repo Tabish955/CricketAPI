@@ -1,3 +1,5 @@
+import { applyValidatedAssets } from '../src/team-assets.js';
+applyValidatedAssets({'https://example.org/a.png':{verdict:'green'}});
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { normalizeEspnInningsDetails, normalizeEspnStandings } from '../src/espn.js';
