@@ -1,0 +1,75 @@
+{
+  "evidenceType": "Actual sandbox HEAD attempts, not CDN HTTP404 proof",
+  "rows": [
+    {
+      "id": "1346027",
+      "url": "https://a.espncdn.com/i/teamlogos/cricket/500/1346027.png",
+      "verdict": "unknown",
+      "status": null,
+      "contentType": null,
+      "advertisedBytes": null,
+      "actualBytes": null,
+      "error": "fetch failed"
+    },
+    {
+      "id": "1336141",
+      "url": "https://a.espncdn.com/i/teamlogos/cricket/500/1336141.png",
+      "verdict": "unknown",
+      "status": null,
+      "contentType": null,
+      "advertisedBytes": null,
+      "actualBytes": null,
+      "error": "fetch failed"
+    },
+    {
+      "id": "1336151",
+      "url": "https://a.espncdn.com/i/teamlogos/cricket/500/1336151.png",
+      "verdict": "unknown",
+      "status": null,
+      "contentType": null,
+      "advertisedBytes": null,
+      "actualBytes": null,
+      "error": "fetch failed"
+    },
+    {
+      "id": "3161",
+      "url": "https://a.espncdn.com/i/teamlogos/cricket/500/3161.png",
+      "verdict": "unknown",
+      "status": null,
+      "contentType": null,
+      "advertisedBytes": null,
+      "actualBytes": null,
+      "error": "fetch failed"
+    },
+    {
+      "id": "1781",
+      "url": "https://a.espncdn.com/i/teamlogos/cricket/500/1781.png",
+      "verdict": "unknown",
+      "status": null,
+      "contentType": null,
+      "advertisedBytes": null,
+      "actualBytes": null,
+      "error": "fetch failed"
+    },
+    {
+      "id": "3590",
+      "url": "https://a.espncdn.com/i/teamlogos/cricket/500/3590.png",
+      "verdict": "unknown",
+      "status": null,
+      "contentType": null,
+      "advertisedBytes": null,
+      "actualBytes": null,
+      "error": "fetch failed"
+    },
+    {
+      "id": "520",
+      "url": "https://a.espncdn.com/i/teamlogos/cricket/500/520.png",
+      "verdict": "unknown",
+      "status": null,
+      "contentType": null,
+      "advertisedBytes": null,
+      "actualBytes": null,
+      "error": "fetch failed"
+    }
+  ]
+}

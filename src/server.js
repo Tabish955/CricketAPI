@@ -1,3 +1,4 @@
+import { sanitizeTeamPayload } from './team-assets.js';
 import { getSportskeedaStandings } from './sportskeeda.js';
 import { getCrexMatches } from './crex.js';
 import { getEspnMatches, getEspnSeries, getEspnMatch, getEspnStandings, getEspnScorecard, getEspnCommentary, normalizeEspnSquads } from './espn.js';
@@ -31,10 +32,11 @@ import { UpstreamError } from './http.js';
 const OWN = 'CricketAPI (educational; local reverse-engineering study)';
 
 function send(res, status, body, extraHeaders = {}) {
-  const payload = JSON.stringify(body, null, 2);
+  const payload = JSON.stringify(sanitizeTeamPayload(body), null, 2);
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
     'Content-Length': Buffer.byteLength(payload),
+    'Cache-Control': 'no-store',
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',

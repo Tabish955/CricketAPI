@@ -1,0 +1,78 @@
+{
+  "checkedAt": "2026-11-26T16:22:25.993Z",
+  "base": "https://cricketapi-beryl.vercel.app",
+  "scope": "Current list window and standings for discovered provider-scoped leagues plus explicit standings paths; not all historical IDs or undiscovered leagues.",
+  "method": "HEAD; advertisedBytes is Content-Length, actualBytes not measured",
+  "counts": {
+    "uniqueUrls": 0,
+    "green": 0,
+    "red": 0,
+    "unknown": 0,
+    "discoveryFailures": 12,
+    "nullReferences": 0
+  },
+  "passed": false,
+  "routes": [
+    {
+      "path": "/cb/live",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "path": "/cb/recent",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "path": "/cb/upcoming",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "path": "/espn/live",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "path": "/espn/recent",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "path": "/espn/upcoming",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "path": "/crex/live",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "path": "/crex/recent",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "path": "/crex/upcoming",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "path": "/cricinfo/current",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "path": "/cricinfo/live",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "path": "/espn/standings/20921",
+      "ok": false,
+      "error": "fetch failed"
+    }
+  ],
+  "results": []
+}
