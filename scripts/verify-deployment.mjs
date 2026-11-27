@@ -56,8 +56,8 @@ try {
   for (const item of Object.values(validations)) console.log('ASSET_VALIDATION '+JSON.stringify(item));
   const candidate=await auditAssets({base,extraPaths,extraStandings:['/espn/standings/20921']});
   printReport('candidate-after',candidate);
-  const beforeTeams=new Map(preflight.teamReferences.map(t=>[`${t.id}:${t.name}:${t.route}`,t]));
-  const recovered=candidate.teamReferences.filter(t=>t.imageUrl && (!beforeTeams.get(`${t.id}:${t.name}:${t.route}`)?.imageUrl || validations[beforeTeams.get(`${t.id}:${t.name}:${t.route}`)?.imageUrl]?.verdict!=='green'));
+  const beforeTeams=new Map(baseline.teamReferences.map(t=>[`${t.id}:${t.name}:${t.route}`,t]));
+  const recovered=candidate.teamReferences.filter(t=>beforeTeams.has(`${t.id}:${t.name}:${t.route}`) && t.imageUrl && (!beforeTeams.get(`${t.id}:${t.name}:${t.route}`)?.imageUrl || validations[beforeTeams.get(`${t.id}:${t.name}:${t.route}`)?.imageUrl]?.verdict!=='green'));
   for(const team of recovered) console.log('LOGO_RECOVERED '+JSON.stringify(team));
   await writeFile('logo-recovered.json',JSON.stringify(recovered,null,2)+'\n');
   await reportFlagCoverage({candidate,validations,base});
