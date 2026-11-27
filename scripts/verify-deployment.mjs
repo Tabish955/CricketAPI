@@ -1,3 +1,5 @@
+import {logoCandidates,applyLogoCandidates} from '../src/team-logo-registry.js';
+import {discoverTeamLogos} from './discover-team-logos.mjs';
 import {reportFlagCoverage} from './flag-coverage.mjs';
 import { nationalFlag, flagCandidates } from '../src/national-flags.js';
 import { inspectAsset } from './validate-team-assets.mjs';
@@ -34,13 +36,30 @@ try {
   const unique=new Map([...baseline.results,...preflight.results].map(r=>[r.url,r]));
   const validations = Object.fromEntries([...unique.values()].map(r=>[r.url,r]));
   for (const url of flagCandidates) if (!validations[url]) validations[url]={url,...await inspectAsset(url)};
-  await writeFile(new URL('../src/validated-assets.json',import.meta.url),JSON.stringify(validations,null,2)+'\n');
+  const missingTeams=preflight.teamReferences.filter(t=>!t.imageUrl || validations[t.imageUrl]?.verdict!=='green');
+  const discovered=await discoverTeamLogos(missingTeams);
+  for(const row of discovered) console.log('LOGO_DISCOVERY '+JSON.stringify(row));
+  const registry=new Map(logoCandidates.map(t=>[`${t.id}:${t.name}`,t]));
+  for(const row of discovered.filter(t=>t.url)) registry.set(`${row.id}:${row.name}`,row);
+  const candidates=[...registry.values()];
+  for(const row of candidates) {
+    if(!validations[row.url]) validations[row.url]={url:row.url,...await inspectAsset(row.url)};
+    console.log('LOGO_CANDIDATE '+JSON.stringify({...row,validation:validations[row.url]}));
+  }
+  applyLogoCandidates(candidates);
+  await writeFile(new URL('../src/logo-candidates.json',import.meta.url),JSON.stringify(candidates,null,2)+'\n');
+  await writeFile('logo-discovery.json',JSON.stringify({discovered,candidates},null,2)+'\n');
+  await writeFile(new URL('../src/validated-assets.json' ,import.meta.url),JSON.stringify(validations,null,2)+'\n');
   const {applyValidatedAssets}=await import('../src/team-assets.js');
   applyValidatedAssets(validations);
   delete process.env.ASSET_DISCOVERY;
   for (const item of Object.values(validations)) console.log('ASSET_VALIDATION '+JSON.stringify(item));
   const candidate=await auditAssets({base,extraPaths,extraStandings:['/espn/standings/20921']});
   printReport('candidate-after',candidate);
+  const beforeTeams=new Map(preflight.teamReferences.map(t=>[`${t.id}:${t.name}:${t.route}`,t]));
+  const recovered=candidate.teamReferences.filter(t=>t.imageUrl && (!beforeTeams.get(`${t.id}:${t.name}:${t.route}`)?.imageUrl || validations[beforeTeams.get(`${t.id}:${t.name}:${t.route}`)?.imageUrl]?.verdict!=='green'));
+  for(const team of recovered) console.log('LOGO_RECOVERED '+JSON.stringify(team));
+  await writeFile('logo-recovered.json',JSON.stringify(recovered,null,2)+'\n');
   await reportFlagCoverage({candidate,validations,base});
   await writeFile('asset-verification.json',JSON.stringify({baseline,preflight,validations,candidate},null,2)+'\n');
   const samples=[];

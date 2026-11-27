@@ -1,3 +1,4 @@
+import {candidateLogo} from './team-logo-registry.js';
 import { nationalFlag } from './national-flags.js';
 import { readFileSync } from 'node:fs';
 const verifiedExclusions = JSON.parse(readFileSync(new URL('./verified-asset-exclusions.json', import.meta.url), 'utf8'));
@@ -24,7 +25,7 @@ export function teamAssets(team) {
   const imageUrl = typeof team.imageUrl === 'string' && team.imageUrl.trim() && !rejectedCrests.has(team.imageUrl)
     ? team.imageUrl : null;
   // Country identity is explicit; the transport manifest must independently pass.
-  return { ...team, imageUrl: allowed(imageUrl), flagUrl: allowed(nationalFlag(team)) };
+  return { ...team, imageUrl: allowed(imageUrl) || allowed(candidateLogo(team)), flagUrl: allowed(nationalFlag(team)) };
 }
 
 // Apply at the shared JSON boundary so fallback providers and standings cannot
