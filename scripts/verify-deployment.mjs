@@ -1,4 +1,4 @@
-import { flagCandidates } from '../src/national-flags.js';
+import { nationalFlag, flagCandidates } from '../src/national-flags.js';
 import { inspectAsset } from './validate-team-assets.mjs';
 import { writeFile } from 'node:fs/promises';
 // Build-time only: no public audit endpoint and no credentials in evidence.
@@ -49,20 +49,24 @@ try {
     console.log('SAMPLE_PAYLOAD '+JSON.stringify(sample));
   }
   await writeFile('asset-samples.json',JSON.stringify(samples,null,2)+'\n');
-  const nullTeams=new Map();
-  function collect(v,route) {
-    if (!v || typeof v!=='object') return;
-    const id=v.id ?? v.teamId, name=v.name ?? v.teamName;
-    if (name && (Object.hasOwn(v,'flagUrl') || Object.hasOwn(v,'imageUrl'))) {
-      const reasons={};
-      if (v.flagUrl===null) reasons.flagUrl='No explicit national ISO identity, or CDN asset did not pass validation (see validations)';
-      if (v.imageUrl===null) reasons.imageUrl='Provider asset absent, known exact dead URL, or failed HTTPS/HTTP200/image MIME/204800-byte validation';
-      if (Object.keys(reasons).length) nullTeams.set(`${id}:${name}:${route}`,{id,name,route,reasons});
+  const rawTeams=new Map(preflight.teamReferences.map(t=>[`${t.id}:${t.name}:${t.route}`,t]));
+  const nullReport=[];
+  for(const team of candidate.teamReferences) {
+    const raw=rawTeams.get(`${team.id}:${team.name}:${team.route}`);
+    const reasons={};
+    function reason(url) {
+      const result=validations[url];
+      if (!url) return 'No asset supplied by provider, or exact known-dead URL excluded';
+      if (!result) return 'URL absent from verified build inventory';
+      return {url,status:result.status,mime:result.contentType,bytes:result.actualBytes,verdict:result.verdict,error:result.error ?? null};
     }
-    Object.values(v).forEach(x=>collect(x,route));
+    if(team.flagUrl===null) {
+      const flag=nationalFlag({name:team.name});
+      reasons.flagUrl=flag ? reason(flag) : 'No explicit national/subdivision flag identity: club, regional side, multi-country side or unmapped identity';
+    }
+    if(team.imageUrl===null) reasons.imageUrl=reason(raw?.imageUrl);
+    if(Object.keys(reasons).length) nullReport.push({...team,reasons});
   }
-  for (const route of candidate.routes.filter(r=>r.ok)) collect(await (await fetch(base+route.path)).json(),route.path);
-  const nullReport=[...nullTeams.values()];
   await writeFile('asset-null-teams.json',JSON.stringify(nullReport,null,2)+'\n');
   for(const team of nullReport) console.log('NULL_TEAM '+JSON.stringify(team));
   console.log(`NON_NULL_ASSETS_FAILING=${candidate.results.filter(r=>r.verdict!=='green').length}`);

@@ -3,8 +3,9 @@
 Exact national names and explicit A/XI/women/U19 aliases are mapped to country
 ISO codes in `src/national-flags.js`. No substring matching or suffix stripping
 is used. A club name overrides a potentially ambiguous abbreviation. West
-Indies (multi-country) and Scotland (no ISO3166-1 country code) intentionally
-remain null rather than being assigned an incorrect national flag.
+Indies (multi-country) intentionally remains null rather than being assigned
+a member-country flag. England/Scotland/Wales use explicit ISO3166-2
+subdivision flags, independently validated, rather than the UK flag.
 
 Every deploy builds a fresh URL allowlist using HTTPS GET, exact HTTP200,
 image/* content type, positive measured body length <=204800 bytes, and HTTPS

@@ -6,7 +6,8 @@ import {inspectAsset} from '../scripts/validate-team-assets.mjs';
 test('explicit national identities, never club substring inference',()=>{
   assert.equal(nationalFlag({name:'Bangladesh A'}),'https://flagcdn.com/w40/bd.png');
   assert.equal(nationalFlag({name:'Pakistan A'}),'https://flagcdn.com/w40/pk.png');
-  for(const name of ['West Indies','Scotland','India Capitals','Pakistan-administered Kashmir Region','Surrey']) assert.equal(nationalFlag({name,short:'IND'}),null);
+  assert.equal(nationalFlag({name:'England'}),'https://flagcdn.com/w40/gb-eng.png');
+  for(const name of ['West Indies','India Capitals','Pakistan-administered Kashmir Region','Surrey']) assert.equal(nationalFlag({name,short:'IND'}),null);
 });
 test('unverified assets null; verification changes only asset values',()=>{
   delete process.env.ASSET_DISCOVERY;

@@ -45,6 +45,7 @@ export function extractAssets(value, route, assets = new Map(), leagues = new Ma
 export async function auditAssets({ base, transport = fetch, extraStandings = [], extraPaths = [] }) {
   const assets = new Map(), leagues = new Map(), routes = [];
   let nullReferences = 0;
+  const teamReferences = [];
   const countNulls = (v) => {
     if (!v || typeof v !== 'object') return;
     if (Object.hasOwn(v,'imageUrl') && v.imageUrl === null) nullReferences++;
@@ -56,6 +57,12 @@ export async function auditAssets({ base, transport = fetch, extraStandings = []
       const body = await r.json();
       if (!r.ok || body.success !== true) throw new Error(`HTTP ${r.status}; success=${body.success}`);
       routes.push({ path, status:r.status, ok:true });
+      function record(v) {
+        if(!v || typeof v!=='object') return;
+        if ((v.name || v.teamName) && (Object.hasOwn(v,'flagUrl') || Object.hasOwn(v,'imageUrl'))) teamReferences.push({id:v.id ?? v.teamId,name:v.name ?? v.teamName,route:path,imageUrl:v.imageUrl,flagUrl:v.flagUrl});
+        Object.values(v).forEach(record);
+      }
+      record(body);
       extractAssets(body,path,assets,leagues); countNulls(body);
     } catch (err) { routes.push({ path, ok:false, error:err.message }); }
   }
@@ -77,7 +84,7 @@ export async function auditAssets({ base, transport = fetch, extraStandings = []
   return { checkedAt:new Date().toISOString(), base, scope:'Current list window and standings for discovered provider-scoped leagues plus explicit standings paths; not all historical IDs or undiscovered leagues.',
     method:'GET; measured bytes <=204800; HTTPS; HTTP200; image MIME', counts,
     passed: routes.length > 0 && counts.discoveryFailures===0 && counts.unknown===0 && counts.red===0 && counts.green>0,
-    routes, results };
+    routes, results, teamReferences };
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const base = process.env.API_BASE || 'https://cricketapi-beryl.vercel.app';
