@@ -1,3 +1,4 @@
+import { nationalFlag } from './national-flags.js';
 import { readFileSync } from 'node:fs';
 const verifiedExclusions = JSON.parse(readFileSync(new URL('./verified-asset-exclusions.json', import.meta.url), 'utf8'));
 // Exact dead references reported by the consuming production origin on 2026-11-26.
@@ -12,12 +13,18 @@ export function applyVerifiedExclusions(entries) {
 }
 applyVerifiedExclusions(verifiedExclusions);
 
+let validatedAssets = JSON.parse(readFileSync(new URL('./validated-assets.json', import.meta.url), 'utf8'));
+export function applyValidatedAssets(entries) { validatedAssets = entries; }
+function allowed(url) {
+  if (typeof url !== 'string' || !url.startsWith('https://')) return null;
+  return process.env.ASSET_DISCOVERY === '1' || validatedAssets[url]?.verdict === 'green' ? url : null;
+}
 export function teamAssets(team) {
   if (!team || typeof team !== 'object') return team;
   const imageUrl = typeof team.imageUrl === 'string' && team.imageUrl.trim() && !rejectedCrests.has(team.imageUrl)
     ? team.imageUrl : null;
-  // No verified international identity/flag registry exists yet. Crest != flag.
-  return { ...team, imageUrl, flagUrl: null };
+  // Country identity is explicit; the transport manifest must independently pass.
+  return { ...team, imageUrl: allowed(imageUrl), flagUrl: allowed(nationalFlag(team)) };
 }
 
 // Apply at the shared JSON boundary so fallback providers and standings cannot
@@ -29,6 +36,9 @@ export function sanitizeTeamPayload(value) {
     ['team', 'team1', 'team2'].includes(key) && v && typeof v === 'object' && !Array.isArray(v)
       ? teamAssets(sanitizeTeamPayload(v)) : sanitizeTeamPayload(v),
   ]));
+  if (out.teamId != null && typeof out.teamName === 'string' && (Array.isArray(out.players) || Array.isArray(out.squad))) {
+    out.flagUrl = allowed(nationalFlag({name:out.teamName}));
+  }
   if (Array.isArray(out.scores)) {
     const teams = [out.team1, out.team2].filter(Boolean);
     out.scores = out.scores.map((score) => {

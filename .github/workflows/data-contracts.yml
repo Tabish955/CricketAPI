@@ -18,25 +18,14 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
-      - name: Production baseline (diagnostic, not the release gate)
-        continue-on-error: true
-        run: node scripts/validate-team-assets.mjs --standings=/espn/standings/20921 --out=asset-before.json
-      - name: Candidate HTTP and CDN asset gate
-        env:
-          DATA_MODE: live
-          PORT: 3000
-          API_BASE: http://127.0.0.1:3000
-        run: |
-          node src/server.js > server.log 2>&1 &
-          SERVER_PID=$!
-          trap 'kill "$SERVER_PID"' EXIT
-          node --input-type=module -e 'for(let i=0;i<30;i++){try{const r=await fetch("http://127.0.0.1:3000/health");if(r.ok)process.exit(0)}catch{} await new Promise(r=>setTimeout(r,500))}process.exit(1)'
-          node scripts/validate-team-assets.mjs --standings=/espn/standings/20921 --out=asset-after.json
+      - name: Validate and sanitize live team flags and crests
+        run: node scripts/verify-deployment.mjs | tee asset-validation.log
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: asset-http-evidence
           path: |
-            asset-before.json
-            asset-after.json
-            server.log
+            asset-verification.json
+            asset-samples.json
+            asset-validation.log
+            asset-null-teams.json
