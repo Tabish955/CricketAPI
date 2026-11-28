@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 // through a diagnostic HTTP endpoint. Failures are visible, not substituted.
 export async function verifyPlayerProfiles(base) {
   const rows = [];
-  for (const id of ['253802', '277906', '28081', '1070173']) {
+  for (const id of ['253802', '277906', '28081', '1070173', '300631']) {
     try {
       const res = await fetch(`${base}/espn/player/${id}`, { signal: AbortSignal.timeout(30000) });
       const json = await res.json();
@@ -27,5 +27,14 @@ export async function verifyPlayerProfiles(base) {
   for (const row of rows) console.log('PLAYER_PROFILE_EVIDENCE ' + JSON.stringify(row));
   const report = { checkedAt: new Date().toISOString(), passed: rows.every((r) => r.passed), covered: rows.filter((r) => r.passed).length, total: rows.length };
   console.log('PLAYER_PROFILE_SUMMARY ' + JSON.stringify(report));
+  try {
+    const res = await fetch(`${base}/espn/match/1557451/scorecard?league=1557442&date=20261128`, { signal: AbortSignal.timeout(30000) });
+    const body = await res.json();
+    const innings = body.result?.innings || [];
+    console.log('REPORTED_SCORECARD_EVIDENCE ' + JSON.stringify({ status: res.status, matchId: body.result?.matchId,
+      cacheControl: res.headers.get('cache-control'), innings: innings.map(i => ({ inningsId: i.inningsId, score: i.score,
+        batters: i.batsmen?.length || 0, bowlers: i.bowlers?.length || 0 })),
+      kusal: innings.flatMap(i => i.batsmen || []).filter(p => p.id === '300631').map(p => ({ id: p.id, runs: p.runs, balls: p.balls })) }));
+  } catch (e) { console.log('REPORTED_SCORECARD_EVIDENCE ' + JSON.stringify({ error: e.message })); }
   return { ...report, rows };
 }

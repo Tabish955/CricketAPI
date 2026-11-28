@@ -34,12 +34,12 @@ available, with null career fields. Failure of ESPN identity retrieval fails the
 request, rather than displaying a different player or a fixture.
 
 The legacy Cricbuzz profile response also gains biography/career fields. For the
-four reviewed IDs its request uses the observed full URL, including the slug.
+five reviewed IDs its request uses the observed full URL, including the slug.
 Unknown legacy IDs retain the existing behavior and may return an upstream 404.
 
 ## Identity coverage — deliberately limited
 
-`src/player-profile-links.js` holds FOUR reviewed pairs only:
+`src/player-profile-links.js` holds FIVE reviewed pairs only:
 
 | Player | ESPN | Cricbuzz | Reviewed birth date |
 | --- | --- | --- | --- |
@@ -47,6 +47,7 @@ Unknown legacy IDs retain the existing behavior and may return an upstream 404.
 | Kane Williamson | 277906 | 6326 | 1990-08-08 |
 | MS Dhoni | 28081 | 265 | 1981-07-07 |
 | Shubman Gill | 1070173 | 11808 | 1999-09-08 |
+| Kusal Perera | 300631 | 8116 | 1990-08-17 |
 
 Each row records its exact published Cricbuzz URL and allowed published names.
 At runtime BOTH profiles must match the reviewed names and birth date, and the
