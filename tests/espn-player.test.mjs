@@ -6,7 +6,7 @@ import { playerProfileLinks } from '../src/player-profile-links.js';
 import handler from '../api/index.js';
 
 const raw = JSON.parse(readFileSync(new URL('../fixtures/espn-player-253802.json', import.meta.url)));
-const cb = () => ({ playerId: '1413', name: 'Virat Kohli', found: true, personalInfo: { born: 'November 05, 1988 (38 years)' }, biography: 'Synthetic biography for identity tests.', careerStats: { batting: { title: 'Batting Career Summary', formats: [{ format: 'Test', statistics: { Matches: '0', Highest: null } }] }, bowling: null } });
+const cb = () => ({ playerId: '1413', publishedPlayerId: '1413', name: 'Virat Kohli', found: true, personalInfo: { born: 'November 05, 1988 (38 years)' }, biography: 'Synthetic biography for identity tests.', careerStats: { batting: { title: 'Batting Career Summary', formats: [{ format: 'Test', statistics: { Matches: '0', Highest: null } }] }, bowling: null } });
 
 test('profile rejects different/missing athlete ID and other sports; no switcher fallback', () => {
   for (const r of [{}, { athlete: { ...raw.athlete, id: '1' } }, { athlete: { ...raw.athlete, type: 'soccer' } }, { playerSwitcher: { athletes: [raw.athlete] } }]) assert.throws(() => normalizeEspnPlayer(r, '253802'), /identity/);
@@ -48,11 +48,15 @@ test('career outage or mismatch leaves valid ESPN identity available', async () 
   assert.equal(mismatch.data.careerSourceUrl, null);
   assert.match(mismatch.data.careerCoverage, /identity checks/);
 });
-test('unmapped players never trigger a career search or guessed provider ID', async () => {
-  const id = '999';
-  const result = await loadEspnPlayer(id, { readAthlete: async () => ({ athlete: { ...raw.athlete, id } }), readCareer: async () => assert.fail('must not fetch') });
-  assert.equal(result.data.playerId, id);
-  assert.equal(result.data.careerPlayerId, null);
+test('players outside the reviewed list discover a provider-local ID, never guess it', async () => {
+  const result = await loadEspnPlayer('999', {
+    readAthlete: async () => ({ athlete: { ...raw.athlete, id: '999' } }),
+    searchPlayers: async () => ({ data: [{ id: '1413', name: 'Virat Kohli', dob: '1988-11-05' }] }),
+    readCareer: async (link) => { assert.equal(link.cricbuzzId, '1413'); return cb(); },
+  });
+  assert.equal(result.data.playerId, '999');
+  assert.equal(result.data.careerPlayerId, '1413');
+  assert.ok(result.data.biography);
 });
 test('HTTP profile fixture uses exact ID, no-store and nullable career, never generic substitution', async () => {
   async function call(url) {

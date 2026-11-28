@@ -1,5 +1,5 @@
-import { parseCareerTables, parseProfileBiography, profileNameFromTitle } from './player-career.js';
-import { reviewedCricbuzzUrl } from './player-profile-links.js';
+import { parseCareerTables, parseProfileBiography, profileNameFromTitle, profilePublishedIdentity } from './player-career.js';
+import { searchCricbuzzPlayers } from './player-discovery.js';
 import { getCrexMatches } from './crex.js';
 import { fetchEspnHeader } from './espn.js';
 // Upstream providers. Each function returns { data, meta } where meta describes
@@ -428,15 +428,14 @@ export async function getCbziosMatchDetail(matchId) {
  * NOTE: this endpoint is code-observed but not fixture-verified; it may 404.
  */
 export async function searchPlayers(query) {
-  const url = `${BASES.cricbuzz}/api/cricket-search/v2?action=cricketers&q=${encodeURIComponent(query)}&callback=`;
+  const url = `${BASES.cricbuzz}/api/player-search/${encodeURIComponent(query)}`;
   return withFallback({
     fixtureOp: 'cb.playerSearch', // no fixture registered -> NO_FIXTURE in fixtures mode
     ttl: TTL.playerSearch,
     cacheKey: `cb:playersearch:${query.toLowerCase()}`,
     liveFn: async () => {
-      const { text } = await fetchText(url, { headers: CRICBUZZ_API_HEADERS });
-      const json = JSON.parse(stripJsonp(text));
-      const hits = (json?.player || json?.players || []).map((p) => ({
+      const { data } = await searchCricbuzzPlayers(query);
+      const hits = data.map((p) => ({
         id: String(p.id ?? p.playerId ?? ''),
         name: String(p.name ?? p.playerName ?? ''),
         country: String(p.teamName ?? p.country ?? ''),
@@ -452,7 +451,7 @@ export async function searchPlayers(query) {
  * Extracts personalInfo fields with a label scanner (code-observed approach).
  */
 export async function getPlayerProfile(playerId) {
-  const url = reviewedCricbuzzUrl(playerId) || `${BASES.cricbuzz}/profiles/${playerId}`;
+  const url = `${BASES.cricbuzz}/profiles/${encodeURIComponent(playerId)}/player`;
   return withFallback({
     fixtureOp: 'cb.playerProfile', // no fixture registered
     ttl: TTL.playerProfile,
@@ -491,6 +490,7 @@ export function parseProfileHtml(html, playerId) {
 
   return {
     playerId: String(playerId),
+    publishedPlayerId: profilePublishedIdentity(html),
     found: !!(name || personalInfo.born),
     name,
     country,
@@ -498,7 +498,7 @@ export function parseProfileHtml(html, playerId) {
     personalInfo,
     biography: parseProfileBiography(html),
     careerStats: parseCareerTables(html),
-    careerSourceUrl: reviewedCricbuzzUrl(playerId) || `https://www.cricbuzz.com/profiles/${encodeURIComponent(playerId)}`,
+    careerSourceUrl: `https://www.cricbuzz.com/profiles/${encodeURIComponent(playerId)}/player`,
     // Retrieval is not a guarantee that the provider has updated career totals.
     careerUpdatedAt: null,
     source: 'cricbuzz-profile-html',

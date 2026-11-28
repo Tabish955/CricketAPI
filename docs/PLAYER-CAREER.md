@@ -33,30 +33,37 @@ Career-provider failures or mismatches leave valid ESPN personal information
 available, with null career fields. Failure of ESPN identity retrieval fails the
 request, rather than displaying a different player or a fixture.
 
-The legacy Cricbuzz profile response also gains biography/career fields. For the
-five reviewed IDs its request uses the observed full URL, including the slug.
-Unknown legacy IDs retain the existing behavior and may return an upstream 404.
+The legacy Cricbuzz profile endpoint also uses `/profiles/{id}/player` for
+all provider-local IDs, not only reviewed entries. Public player search uses
+`/api/player-search/{encoded name}` rather than the obsolete JSONP route.
 
-## Identity coverage — deliberately limited
+## Identity coverage — automatic for every player
 
-`src/player-profile-links.js` holds FIVE reviewed pairs only:
+There is no per-player eligibility list. For any valid ESPN profile:
 
-| Player | ESPN | Cricbuzz | Reviewed birth date |
-| --- | --- | --- | --- |
-| Virat Kohli | 253802 | 1413 | 1988-11-05 |
-| Kane Williamson | 277906 | 6326 | 1990-08-08 |
-| MS Dhoni | 28081 | 265 | 1981-07-07 |
-| Shubman Gill | 1070173 | 11808 | 1999-09-08 |
-| Kusal Perera | 300631 | 8116 | 1990-08-17 |
+1. Use the published short/display names (at most two unique queries) to query
+   Cricbuzz's public autocomplete. Its observed JSON includes provider-local ID,
+   published name and ISO full birth date. No-hit payloads contain only category.
+2. Require exactly one unique ID matching an exact normalized published name AND
+   the full ESPN birth date. Same-name/different-DOB players are not interchangeable.
+   Name-only/fuzzy/initials matching and numeric-ID reuse are prohibited.
+3. Fetch `/profiles/{discovered Cricbuzz ID}/player`; independently verify the
+   profile's published canonical/og URL ID, title/name and DOB before importing
+   any biography or tables. Missing identity evidence fails closed.
+4. The existing five reviewed pairs are retained only as an optimization and for
+   reviewed full-name aliases, with the same runtime profile checks, not a gate.
 
-Each row records its exact published Cricbuzz URL and allowed published names.
-At runtime BOTH profiles must match the reviewed names and birth date, and the
-Cricbuzz ID must match the reviewed ID. Unknown players do not trigger fuzzy
-search, slug guessing or numeric-ID reuse. Their ESPN personal profile can still
-load, but biography/career totals remain unavailable. This is NOT universal
-player coverage. Expanding coverage requires separately reviewed source pairs.
+Missing DOB, no match, ambiguity, identity rejection and upstream outages have
+explicit coverage explanations. Personal ESPN information remains available.
+No provider publishes complete career data for every player: universal lookup
+eligibility does not promise universal biography/statistics availability. Partial
+batting/bowling coverage stays nullable. Match statistics remain separate.
 
-## Live source research (preview only)
+Search is cached/single-flight for one hour, as are ESPN profile results. At most
+two concurrent search reads and one profile read occur for a new unmapped player;
+normal upstream timeouts apply with no retries. No portrait assets are added.
+
+## Historical live source research (initial limited implementation)
 
 Public JSON identity source:
 `https://site.web.api.espn.com/apis/common/v3/sports/cricket/200/athletes/{id}`.
@@ -97,7 +104,7 @@ The user receives changed website files only, never API code in the website ZIP.
 
 ## Verification
 
-- API: 73 offline tests pass, including parser, runtime identity rejection,
+- API: 84 offline tests pass, including parser, runtime identity rejection,
   provider outage, exact fixture, no-store and no-substitution cases.
 - Website: TypeScript, 205 tests (23 files), production build pass.
 - `fixtures/espn-player-253802.json` is a trimmed public identity response from
