@@ -105,4 +105,7 @@ The user receives changed website files only, never API code in the website ZIP.
   biography hashes/lengths and career figures during the Vercel build. Optional
   provider availability is reported separately from existing asset build gates.
 
-No production merge or deployment is implied by local tests or research builds.
+The candidate endpoint subsequently passed live checks for all four reviewed
+players, including Gill. See [candidate HTTP evidence](PLAYER-PROFILE-EVIDENCE.md)
+for IDs, biography hashes and sampled career figures. No production merge or
+website deployment is implied by local tests or research builds.

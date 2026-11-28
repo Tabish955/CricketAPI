@@ -1,3 +1,4 @@
+import { playerRole } from './espn-detail.js';
 import { DATA_MODE, TTL } from './config.js';
 import { fetchJson, fetchText, UpstreamError } from './http.js';
 import { cached } from './cache.js';
@@ -30,7 +31,7 @@ export function normalizeEspnPlayer(raw, id) {
     provider: 'espn', playerId: String(id), found: true,
     name: clean(a.displayName), shortName: clean(a.shortName),
     personalInfo: { born: clean(a.displayDOB), birthDate: espnBirthDate(a.displayDOB),
-      role: clean(a.position?.name), battingStyle: style(a.batStyle), bowlingStyle: style(a.bowlStyle) },
+      role: playerRole(a.position?.name), battingStyle: style(a.batStyle), bowlingStyle: style(a.bowlStyle) },
     // Team is provider-published membership, not inferred nationality.
     team: a.team?.id ? { id: String(a.team.id), name: clean(a.team.displayName) } : null,
     imageUrl: null, biography: null, careerStats: { batting: null, bowling: null },

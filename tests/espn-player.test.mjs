@@ -18,6 +18,7 @@ test('ESPN personal profile omits unvalidated images and does not label team as 
   assert.equal(p.biography, null);
   assert.equal(p.team.id, '6');
   assert.equal('country' in p, false);
+  assert.equal(normalizeEspnPlayer({ athlete: { ...raw.athlete, position: { name: 'Unknown' } } }, '253802').personalInfo.role, null);
   assert.equal(espnBirthDate('November 5, 1988'), null);
   assert.equal(cricbuzzBirthDate('November 05, 1988 (38 years)'), '1988-11-05');
 });
