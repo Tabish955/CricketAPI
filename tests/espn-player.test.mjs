@@ -40,16 +40,17 @@ test('reviewed links still require runtime names, both DOBs and exact Cricbuzz I
   assert.equal(good.careerStats.batting.formats[0].statistics.Matches, '0');
 });
 test('career outage or mismatch leaves valid ESPN identity available', async () => {
-  const outage = await loadEspnPlayer('253802', { readAthlete: async () => raw, readCareer: async () => { throw new Error('upstream down'); } });
+  const outage = await loadEspnPlayer('253802', { readPortrait: async () => ({ valid: false }), readAthlete: async () => raw, readCareer: async () => { throw new Error('upstream down'); } });
   assert.equal(outage.data.name, 'Virat Kohli');
   assert.equal(outage.data.biography, null);
   assert.match(outage.data.careerCoverage, /temporarily/);
-  const mismatch = await loadEspnPlayer('253802', { readAthlete: async () => raw, readCareer: async () => ({ ...cb(), name: 'Wrong' }) });
+  const mismatch = await loadEspnPlayer('253802', { readPortrait: async () => ({ valid: false }), readAthlete: async () => raw, readCareer: async () => ({ ...cb(), name: 'Wrong' }) });
   assert.equal(mismatch.data.careerSourceUrl, null);
   assert.match(mismatch.data.careerCoverage, /identity checks/);
 });
 test('players outside the reviewed list discover a provider-local ID, never guess it', async () => {
   const result = await loadEspnPlayer('999', {
+    readPortrait: async () => ({ valid: false }),
     readAthlete: async () => ({ athlete: { ...raw.athlete, id: '999' } }),
     searchPlayers: async () => ({ data: [{ id: '1413', name: 'Virat Kohli', dob: '1988-11-05' }] }),
     readCareer: async (link) => { assert.equal(link.cricbuzzId, '1413'); return cb(); },

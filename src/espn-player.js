@@ -1,3 +1,4 @@
+import { verifiedPlayerPortrait, verifiedCricbuzzPortrait } from './player-portrait.js';
 import { playerRole } from './espn-detail.js';
 import { DATA_MODE, TTL } from './config.js';
 import { fetchJson, fetchText, UpstreamError } from './http.js';
@@ -58,10 +59,14 @@ export function attachReviewedCareer(player, cb, link) {
 }
 
 /** Injectable reads let tests verify failure behavior without hitting live sources. */
-export async function loadEspnPlayer(id, { readAthlete, readCareer, searchPlayers } = {}) {
+export async function loadEspnPlayer(id, { readAthlete, readCareer, searchPlayers, readPortrait } = {}) {
   const url = `https://site.web.api.espn.com/apis/common/v3/sports/cricket/200/athletes/${id}`;
   const raw = await (readAthlete ? readAthlete(url) : fetchJson(url, { retries: 0 }).then((r) => r.json));
   const player = normalizeEspnPlayer(raw, id);
+  // Portrait failure is independent of personal details and career coverage.
+  // Injectable validation keeps offline tests off the network.
+  const portrait = verifiedPlayerPortrait(raw, id, readPortrait).catch(() => null);
+  let fallbackPortrait = null;
   try {
     // Reviewed entries are a fast path, not an eligibility list. Every other
     // player uses bounded exact-name/DOB discovery with independent revalidation.
@@ -81,11 +86,13 @@ export async function loadEspnPlayer(id, { readAthlete, readCareer, searchPlayer
     if (link) {
       const cb = readCareer ? await readCareer(link) : parseProfileHtml((await fetchText(link.url, { retries: 0 })).text, link.cricbuzzId);
       if (!attachReviewedCareer(player, cb, link)) player.careerCoverage = 'Career profile identity checks did not pass; no career data has been imported.';
+      else if (!await portrait) fallbackPortrait = await verifiedCricbuzzPortrait(cb, link.cricbuzzId, readPortrait);
     }
   } catch {
     // Search/profile outages must not hide the valid ESPN personal profile.
     player.careerCoverage = 'The career provider is temporarily unavailable. Personal details are from ESPN.';
   }
+  player.imageUrl = await portrait || fallbackPortrait;
   return { data: player, meta: { source: 'live', upstream: url, fetchedAt: new Date().toISOString(), cached: false } };
 }
 

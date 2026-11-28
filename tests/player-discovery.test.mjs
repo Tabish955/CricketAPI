@@ -32,7 +32,7 @@ test('at most two published-name searches; different alias results must agree', 
   assert.equal(r.status, 'ambiguous');
 });
 test('unlisted player integration imports parsed biography and partial tables with independent profile identity', async () => {
-  const result = await loadEspnPlayer('1070183', { readAthlete: athlete(), searchPlayers: rows([hit]), readCareer: async () => parseProfileHtml(html(), '12086') });
+  const result = await loadEspnPlayer('1070183', { readPortrait: async () => ({ valid: false }), readAthlete: athlete(), searchPlayers: rows([hit]), readCareer: async () => parseProfileHtml(html(), '12086') });
   assert.equal(result.data.careerPlayerId, '12086');
   assert.equal(result.data.biography, 'Synthetic test biography.');
   assert.equal(result.data.careerStats.batting.formats[0].statistics.Matches, '0');
@@ -42,7 +42,7 @@ test('unlisted player integration imports parsed biography and partial tables wi
 });
 test('wrong redirect, missing canonical, wrong profile name/DOB never attach data', async () => {
   for (const doc of [html('999'), html().replace(/<link[^>]+>/, ''), html('12086', 'Wrong Person'), html('12086', player.name, 'September 05, 2000')]) {
-    const { data } = await loadEspnPlayer('1070183', { readAthlete: athlete(), searchPlayers: rows([hit]), readCareer: async () => parseProfileHtml(doc, '12086') });
+    const { data } = await loadEspnPlayer('1070183', { readPortrait: async () => ({ valid: false }), readAthlete: athlete(), searchPlayers: rows([hit]), readCareer: async () => parseProfileHtml(doc, '12086') });
     assert.equal(data.biography, null);
     assert.equal(data.careerPlayerId, null);
     assert.match(data.careerCoverage, /identity checks/);
@@ -51,6 +51,7 @@ test('wrong redirect, missing canonical, wrong profile name/DOB never attach dat
 });
 test('women and arbitrary provider IDs use the same generic pipeline', async () => {
   const { data } = await loadEspnPlayer('1070183', {
+    readPortrait: async () => ({ valid: false }),
     readAthlete: athlete({ displayName: 'Smriti Shriniwas Mandhana', shortName: 'Smriti Mandhana', displayDOB: '18/7/1996' }),
     searchPlayers: rows([{ id: '10012', name: 'Smriti Mandhana', dob: '1996-07-18' }]),
     readCareer: async () => parseProfileHtml(html('10012', 'Smriti Mandhana', 'July 18, 1996'), '10012'),
@@ -59,12 +60,12 @@ test('women and arbitrary provider IDs use the same generic pipeline', async () 
 });
 test('unlisted no-match, ambiguity, missing identity and upstream failures preserve personal profile', async () => {
   for (const [searchPlayers, expected] of [[rows([]), /No matching/], [rows([hit, { ...hit, id: '222' }]), /Multiple/], [async () => { throw Error('down'); }, /temporarily/]]) {
-    const { data } = await loadEspnPlayer('1070183', { readAthlete: athlete(), searchPlayers, readCareer: () => assert.fail('no fetch') });
+    const { data } = await loadEspnPlayer('1070183', { readPortrait: async () => ({ valid: false }), readAthlete: athlete(), searchPlayers, readCareer: () => assert.fail('no fetch') });
     assert.equal(data.name, player.name);
     assert.equal(data.biography, null);
     assert.match(data.careerCoverage, expected);
   }
-  const { data } = await loadEspnPlayer('1070183', { readAthlete: athlete({ displayDOB: null }), searchPlayers: () => assert.fail('no search') });
+  const { data } = await loadEspnPlayer('1070183', { readPortrait: async () => ({ valid: false }), readAthlete: athlete({ displayDOB: null }), searchPlayers: () => assert.fail('no search') });
   assert.match(data.careerCoverage, /birth date/);
 });
 test('autocomplete transport accepts observed no-hit shape, rejects malformed payload and caches', async () => {
