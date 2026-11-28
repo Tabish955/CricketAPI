@@ -1,3 +1,5 @@
+import { load } from 'cheerio';
+import { portraitCandidate } from '../src/player-portrait.js';
 import { inspectPortrait } from '../src/player-portrait.js';
 import { createHash } from 'node:crypto';
 
@@ -19,6 +21,21 @@ export async function verifyPlayerProfiles(base) {
         bowling: p?.careerStats?.bowling?.formats || null,
         imageUrl: p?.imageUrl ?? null, coverage: p?.careerCoverage,
       };
+      if (['253802', '597806'].includes(id)) {
+        try {
+          const identity = await (await fetch(`https://site.web.api.espn.com/apis/common/v3/sports/cricket/200/athletes/${id}`)).json();
+          const candidate = portraitCandidate(identity, id);
+          console.log('PORTRAIT_SOURCE_EVIDENCE ' + JSON.stringify({ id, headshot: identity.athlete?.headshot, candidate,
+            validation: candidate ? await inspectPortrait(candidate) : null }));
+          if (p?.careerSourceUrl) {
+            const html = await (await fetch(p.careerSourceUrl)).text();
+            const $ = load(html);
+            console.log('PORTRAIT_PAGE_EVIDENCE ' + JSON.stringify({ id,
+              images: $('img').toArray().slice(0, 12).map(i => ({ alt: $(i).attr('alt'), src: $(i).attr('src'), dataSrc: $(i).attr('data-src') })),
+              ogImage: $('meta[property="og:image"]').attr('content') }));
+          }
+        } catch (e) { console.log('PORTRAIT_RESEARCH_ERROR ' + JSON.stringify({id,error:e.message})); }
+      }
       row.portraitValidation = p?.imageUrl ? await inspectPortrait(p.imageUrl) : null;
       row.passed = res.status === 200 && p?.playerId === id && p?.provider === 'espn'
         && res.headers.get('cache-control') === 'no-store' && (!p?.imageUrl || row.portraitValidation?.valid)
