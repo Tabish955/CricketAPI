@@ -423,9 +423,8 @@ export async function getCbziosMatchDetail(matchId) {
 // ---------------------------------------------------------------------------
 
 /**
- * Player search via the JSONP endpoint /api/cricket-search/v2.
- * Returns raw search hits: { id, name, teamName, role }.
- * NOTE: this endpoint is code-observed but not fixture-verified; it may 404.
+ * Player search via the public JSON autocomplete /api/player-search/{name}.
+ * Preserves the legacy response envelope; no identity join is made here.
  */
 export async function searchPlayers(query) {
   const url = `${BASES.cricbuzz}/api/player-search/${encodeURIComponent(query)}`;
@@ -447,7 +446,7 @@ export async function searchPlayers(query) {
 }
 
 /**
- * Player profile HTML scrape of /profiles/{id}.
+ * Player profile HTML scrape of /profiles/{id}/player.
  * Extracts personalInfo fields with a label scanner (code-observed approach).
  */
 export async function getPlayerProfile(playerId) {
