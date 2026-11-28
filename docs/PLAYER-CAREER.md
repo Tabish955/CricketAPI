@@ -18,7 +18,10 @@ Player fields:
 - `provider: "espn"`, `playerId`, `name`, `shortName`, `personalInfo`, `team`.
   Team means published membership, not inferred nationality. `personalInfo.born`
   preserves ESPN's display text; `birthDate` normalizes its observed day/month/year.
-- `imageUrl: null`: no new unvalidated portraits/flags/crests are exposed.
+- `imageUrl`: nullable verified player portrait. Exact ESPN published headshot,
+  or a name-labelled portrait from the independently verified Cricbuzz profile;
+  every non-null URL passes measured GET 200/image MIME/positive <=200KB.
+  No ID-derived portrait URL, placeholder or guessed CDN resize is exposed.
 - `biography`: plain text or null; no raw HTML reaches the client.
 - `careerStats.batting` / `careerStats.bowling`: null or `{title, formats}`.
   Each format contains its published `format` label and a `statistics` dictionary.

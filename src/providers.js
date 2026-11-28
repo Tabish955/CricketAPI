@@ -1,4 +1,5 @@
-import { parseCareerTables, parseProfileBiography, profileNameFromTitle, profilePublishedIdentity } from './player-career.js';
+import { verifiedCricbuzzPortrait } from './player-portrait.js';
+import { parseCareerTables, parseProfileBiography, profileNameFromTitle, profilePublishedIdentity, profilePortraitCandidate } from './player-career.js';
 import { searchCricbuzzPlayers } from './player-discovery.js';
 import { getCrexMatches } from './crex.js';
 import { fetchEspnHeader } from './espn.js';
@@ -458,6 +459,8 @@ export async function getPlayerProfile(playerId) {
     liveFn: async () => {
       const { text: html } = await fetchText(url, { headers: CRICBUZZ_HTML_HEADERS });
       const profile = parseProfileHtml(html, playerId);
+      profile.imageUrl = await verifiedCricbuzzPortrait(profile, String(playerId));
+      delete profile.portraitCandidate;
       return { data: profile, meta: liveMeta(url) };
     },
   });
@@ -485,7 +488,7 @@ export function parseProfileHtml(html, playerId) {
   const country = countryMatch ? stripTags(countryMatch[1]) : '';
 
   // Profile image (observed pattern: static.cricbuzz.com/a/img/v1/.../player images).
-  const img = html.match(/<img[^>]+src="(https:\/\/static\.cricbuzz\.com\/[^"]*(?:player|i1)[^"]*)"/i);
+  const portrait = profilePortraitCandidate(html, name);
 
   return {
     playerId: String(playerId),
@@ -493,7 +496,8 @@ export function parseProfileHtml(html, playerId) {
     found: !!(name || personalInfo.born),
     name,
     country,
-    imageUrl: img ? img[1] : '',
+    imageUrl: null,
+    portraitCandidate: portrait,
     personalInfo,
     biography: parseProfileBiography(html),
     careerStats: parseCareerTables(html),

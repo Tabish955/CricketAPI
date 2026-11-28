@@ -1,3 +1,4 @@
+import { inspectPortrait } from '../src/player-portrait.js';
 import { createHash } from 'node:crypto';
 
 // Build-time live evidence only. Never expose raw source bodies or biographies
@@ -18,8 +19,9 @@ export async function verifyPlayerProfiles(base) {
         bowling: p?.careerStats?.bowling?.formats || null,
         imageUrl: p?.imageUrl ?? null, coverage: p?.careerCoverage,
       };
+      row.portraitValidation = p?.imageUrl ? await inspectPortrait(p.imageUrl) : null;
       row.passed = res.status === 200 && p?.playerId === id && p?.provider === 'espn'
-        && res.headers.get('cache-control') === 'no-store' && p?.imageUrl === null
+        && res.headers.get('cache-control') === 'no-store' && (!p?.imageUrl || row.portraitValidation?.valid)
         && row.biographyCharacters > 0 && !!row.batting?.length && !!row.bowling?.length;
       rows.push(row);
     } catch (e) { rows.push({ id, passed: false, error: e.message }); }

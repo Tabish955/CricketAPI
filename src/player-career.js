@@ -7,6 +7,22 @@ const value = (s) => !s || /^(?:[-–—]+|-\/-|n\/?a)$/i.test(s) ? null : s;
  * string values (e.g. 183*, 1/14); never infer formats or convert blanks to zero.
  * Both metric-by-format and format-by-metric layouts are supported.
  */
+export function profilePortraitCandidate(html, name) {
+  const $ = load(html);
+  const normalize = (s) => String(s || '').normalize('NFKC').replace(/[-\s]+/g, ' ').trim().toLowerCase();
+  // Only a visible portrait explicitly labelled with this profile's name.
+  // Not the first image on the page (which may be a team, ad or news thumbnail).
+  for (const img of $('img').toArray()) {
+    if (normalize($(img).attr('alt')) !== normalize(name) || !name) continue;
+    try {
+      const u = new URL($(img).attr('src'));
+      if (u.origin === 'https://static.cricbuzz.com' && !u.username && !u.password
+        && /^\/a\/img\/v1\/(?:[a-z0-9x]+\/)?i1\/c[1-9]\d*\//i.test(u.pathname)) return u.href;
+    } catch { /* No safe labelled candidate. */ }
+  }
+  return null;
+}
+
 export function profilePublishedIdentity(html) {
   const $ = load(html);
   const urls = [$('link[rel="canonical"]').attr('href'), $('meta[property="og:url"]').attr('content')].filter(Boolean);
