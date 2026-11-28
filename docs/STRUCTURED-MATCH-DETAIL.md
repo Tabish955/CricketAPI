@@ -23,7 +23,7 @@ unchanged. Summary failure leaves the match available, with null additions and
 
 Observed primary payloads:
 https://site.web.api.espn.com/apis/site/v2/sports/cricket/1561006/summary?event=1561236&lang=en&region=in
-https://site.web.api.espn.com/apis/site/v2/sports/cricket/1562333/summary?event=1562331&lang=en&region=in
+https://site.web.api.espn.com/apis/site/v2/sports/cricket/1562322/summary?event=1562331&lang=en&region=in
 
 1561236: published toss Pakistan-administered Kashmir Region, bat; umpires Asif
 Farooq Awan and Rana Arshad; referee Inamullah Khan.

@@ -13,7 +13,7 @@ export async function detailEvidence(base) {
   const t20=matches.find(m=>/T20I/i.test(m.format));
   const paths=new Map([
     ['/espn/match/1561236?league=1561006&date=20261127','requested-domestic'],
-    ['/espn/match/1562331?league=1562333&date=20261127','requested-women-finished'],
+    ['/espn/match/1562331?league=1562322&date=20261127','requested-women-finished'],
   ]);
   if(t20) { const u=new URL(t20.detail); paths.set(u.pathname+u.search,'live-t20i'); }
   const samples=[];

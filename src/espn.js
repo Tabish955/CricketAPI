@@ -94,7 +94,9 @@ export async function getEspnMatch(league, id, date, squads = false) {
   if (!match) {
     try {
       const s = await summary();
-      match = normalizeEspnEvent(s.data.header, { id: league });
+      const h = s.data.header;
+      match = normalizeEspnEvent({ ...h, date: h.date || h.competitions?.[0]?.date,
+        venue: s.data.gameInfo?.venue }, { id: league });
       if (!match.team1.id || !match.team2.id) match = null;
     } catch (err) { if (!(err instanceof UpstreamError)) throw err; }
     if (!match) throw new UpstreamError('match not found in league scoreboard or identity-checked summary; supply date=YYYYMMDD for historical matches', { status: 404 });
