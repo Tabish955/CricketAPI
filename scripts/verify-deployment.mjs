@@ -70,6 +70,8 @@ try {
     console.log('SAMPLE_PAYLOAD '+JSON.stringify(sample));
   }
   await writeFile('asset-samples.json',JSON.stringify(samples,null,2)+'\n');
+  const {detailEvidence}=await import('./detail-evidence.mjs');
+  await detailEvidence(base);
   const rawTeams=new Map(preflight.teamReferences.map(t=>[`${t.id}:${t.name}:${t.route}`,t]));
   const nullReport=[];
   for(const team of candidate.teamReferences) {

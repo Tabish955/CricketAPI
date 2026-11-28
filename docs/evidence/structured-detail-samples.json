@@ -1,0 +1,49 @@
+{
+  "evidenceType": "Selected-field excerpts from remote build DETAIL_SAMPLE logs, not full response bodies",
+  "commit": "1eae3e11f05232a32676dd89fe713d9df9438890",
+  "deployment": "dpl_RC6ZuqcQGG7CCqG9knwdVnUFg1V7",
+  "buildLogTime": "2026-11-28T12:51:02.081Z",
+  "coverage": {"liveDomestic": true, "liveT20International": false, "women": true, "finished": true},
+  "transportPassed": true,
+  "mergeReady": false,
+  "assetAudit": {"uniqueUrls": 41, "green": 41, "red": 0, "unknown": 0, "discoveryFailures": 0, "nullReferences": 193},
+  "samples": [
+    {
+      "path": "/espn/match/1561236?league=1561006&date=20261127",
+      "status": 200,
+      "cacheControl": "no-store",
+      "match": {
+        "matchId": "1561236", "category": "live", "live": true,
+        "toss": {"winnerTeamId": "919697", "choice": "bat"},
+        "officials": {"umpires": ["Asif Farooq Awan", "Rana Arshad"], "tvUmpire": null, "referee": "Inamullah Khan"},
+        "pitch": null
+      },
+      "squads": [
+        {"teamId": "382592", "isAnnounced": true, "observedPlayerCount": 11, "allStarter": true},
+        {"teamId": "919697", "isAnnounced": true, "observedPlayerCount": 11, "allStarter": true}
+      ],
+      "selectedPlayer": {"id": "1072465", "name": "Mohammad Arif", "role": null, "isStarter": true, "battingStyle": "Left-hand bat", "bowlingStyle": "Right-arm offbreak"}
+    },
+    {
+      "path": "/espn/match/1562331?league=1562322&date=20261127",
+      "status": 200,
+      "cacheControl": "no-store",
+      "match": {
+        "matchId": "1562331", "category": "recent", "live": false,
+        "toss": {"winnerTeamId": "1116740", "choice": "field"},
+        "officials": {"umpires": ["Nur Hijrah", "Rudy Ismandy"], "tvUmpire": null, "referee": "Edwin Seah"},
+        "pitch": null
+      },
+      "squads": [
+        {"teamId": "299042", "isAnnounced": true, "observedPlayerCount": 11, "allStarter": true},
+        {"teamId": "1116740", "isAnnounced": true, "observedPlayerCount": 11, "allStarter": true}
+      ]
+    }
+  ],
+  "notes": [
+    "observedPlayerCount and allStarter are audit annotations, not API schema fields.",
+    "Full response samples are logged under DETAIL_SAMPLE in the linked Vercel build and generated as detail-samples.json.",
+    "No current live T20I fixture was selected by the upstream live inventory; this acceptance gate remains unsatisfied.",
+    "No new image URL is introduced by this change. Player placeholder headshots are not emitted."
+  ]
+}
