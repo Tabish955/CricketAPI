@@ -5,9 +5,10 @@ import { cached } from './cache.js';
 import { resolveFixture } from './fixtures.js';
 import { parseProfileHtml } from './providers.js';
 import { playerProfileLinks } from './player-profile-links.js';
+import { discoverCricbuzzProfile, normalizedPlayerName } from './player-discovery.js';
 
 const clean = (v) => typeof v === 'string' && v.trim() ? v.trim() : null;
-const sameName = (a, b) => a?.toLowerCase().replace(/\s+/g, ' ').trim() === b.toLowerCase();
+const sameName = (a, b) => !!normalizedPlayerName(a) && normalizedPlayerName(a) === normalizedPlayerName(b);
 const pad = (v) => String(v).padStart(2, '0');
 export function espnBirthDate(v) {
   const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(v || '');
@@ -38,14 +39,14 @@ export function normalizeEspnPlayer(raw, id) {
     profileUrl: `https://www.cricinfo.com/ci/content/player/${id}.html`,
     careerSourceUrl: null, careerProvider: null, careerPlayerId: null,
     careerUpdatedAt: null,
-    careerCoverage: 'No reviewed cross-provider profile link is available for this player.',
+    careerCoverage: 'No identity-verified career profile is available from the provider for this player.',
   };
 }
 
 export function attachReviewedCareer(player, cb, link) {
   const allowed = (name) => link.names.some((n) => sameName(name, n));
   if (!allowed(player.name) && !allowed(player.shortName)) return false;
-  if (!cb.found || String(cb.playerId) !== link.cricbuzzId || !allowed(cb.name)
+  if (!cb.found || String(cb.playerId) !== link.cricbuzzId || cb.publishedPlayerId !== link.cricbuzzId || !allowed(cb.name)
       || player.personalInfo.birthDate !== link.born || cricbuzzBirthDate(cb.personalInfo?.born) !== link.born) return false;
   player.biography = cb.biography;
   player.careerStats = cb.careerStats;
@@ -57,19 +58,33 @@ export function attachReviewedCareer(player, cb, link) {
 }
 
 /** Injectable reads let tests verify failure behavior without hitting live sources. */
-export async function loadEspnPlayer(id, { readAthlete, readCareer } = {}) {
+export async function loadEspnPlayer(id, { readAthlete, readCareer, searchPlayers } = {}) {
   const url = `https://site.web.api.espn.com/apis/common/v3/sports/cricket/200/athletes/${id}`;
   const raw = await (readAthlete ? readAthlete(url) : fetchJson(url, { retries: 0 }).then((r) => r.json));
   const player = normalizeEspnPlayer(raw, id);
-  const link = playerProfileLinks[id];
-  if (link) {
-    try {
+  try {
+    // Reviewed entries are a fast path, not an eligibility list. Every other
+    // player uses bounded exact-name/DOB discovery with independent revalidation.
+    let link = playerProfileLinks[id];
+    if (!link) {
+      const discovery = await discoverCricbuzzProfile(player, searchPlayers);
+      link = discovery.link;
+      if (!link) {
+        const reasons = {
+          identity_unavailable: 'Career lookup requires a published full birth date and name; personal details remain available.',
+          ambiguous: 'Multiple career identities match; no career data has been imported.',
+          no_match: 'No matching career profile was found at the provider; personal details remain available.',
+        };
+        player.careerCoverage = reasons[discovery.status];
+      }
+    }
+    if (link) {
       const cb = readCareer ? await readCareer(link) : parseProfileHtml((await fetchText(link.url, { retries: 0 })).text, link.cricbuzzId);
       if (!attachReviewedCareer(player, cb, link)) player.careerCoverage = 'Career profile identity checks did not pass; no career data has been imported.';
-    } catch {
-      // A career-provider outage must not hide the valid ESPN personal profile.
-      player.careerCoverage = 'The career provider is temporarily unavailable. Personal details are from ESPN.';
     }
+  } catch {
+    // Search/profile outages must not hide the valid ESPN personal profile.
+    player.careerCoverage = 'The career provider is temporarily unavailable. Personal details are from ESPN.';
   }
   return { data: player, meta: { source: 'live', upstream: url, fetchedAt: new Date().toISOString(), cached: false } };
 }

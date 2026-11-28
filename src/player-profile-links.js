@@ -1,4 +1,5 @@
-// Deliberately small, reviewed cross-provider registry, not a name search.
+// Reviewed fast paths/aliases, NOT an eligibility list. All other players use
+// exact-name + full-DOB discovery in player-discovery.js.
 // Each URL was read from the provider's published player profile. Both live
 // identities must also match the reviewed names and DOB before career import.
 // Evidence and coverage limits: docs/PLAYER-CAREER.md.

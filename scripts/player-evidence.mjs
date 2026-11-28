@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 // through a diagnostic HTTP endpoint. Failures are visible, not substituted.
 export async function verifyPlayerProfiles(base) {
   const rows = [];
-  for (const id of ['253802', '277906', '28081', '1070173', '300631']) {
+  for (const id of ['253802', '277906', '28081', '1070173', '300631', '1070183', '597806', '604302']) {
     try {
       const res = await fetch(`${base}/espn/player/${id}`, { signal: AbortSignal.timeout(30000) });
       const json = await res.json();

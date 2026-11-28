@@ -7,6 +7,20 @@ const value = (s) => !s || /^(?:[-–—]+|-\/-|n\/?a)$/i.test(s) ? null : s;
  * string values (e.g. 183*, 1/14); never infer formats or convert blanks to zero.
  * Both metric-by-format and format-by-metric layouts are supported.
  */
+export function profilePublishedIdentity(html) {
+  const $ = load(html);
+  const urls = [$('link[rel="canonical"]').attr('href'), $('meta[property="og:url"]').attr('content')].filter(Boolean);
+  const ids = new Set();
+  for (const value of urls) {
+    try {
+      const u = new URL(value);
+      const m = u.pathname.match(/^\/profiles\/([1-9]\d{0,11})\/[^/]+\/?$/);
+      if (u.origin === 'https://www.cricbuzz.com' && m && !u.username && !u.password) ids.add(m[1]);
+    } catch { /* Unpublished identity remains null. */ }
+  }
+  return ids.size === 1 ? [...ids][0] : null;
+}
+
 export function profileNameFromTitle(html) {
   const $ = load(html);
   const title = $('meta[property="og:title"]').attr('content') || $('title').first().text();
