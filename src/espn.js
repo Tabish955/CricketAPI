@@ -1,4 +1,5 @@
 import { teamAssets } from './team-assets.js';
+import { normalizeEspnDetail, confirmedXI, playerRole } from './espn-detail.js';
 // Public ESPN endpoints observed in scoreboard/header, league scoreboard,
 // summary and standings responses. Recordings are for explicit offline tests only.
 import { DATA_MODE, TTL } from './config.js';
@@ -80,7 +81,22 @@ export async function getEspnMatch(league, id, date, squads = false) {
   const result = await getEspnSeries(league, date);
   const match = result.data.find((m) => m.matchId === id);
   if (!match) throw new UpstreamError('match not found in league scoreboard; supply date=YYYYMMDD for historical matches', { status: 404 });
-  return { data: match, meta: result.meta };
+  let details = { toss: null, officials: null, pitch: null };
+  let detailMeta;
+  try {
+    const summary = await request('espn.detail', id,
+      `${WEB}/apis/site/v2/sports/cricket/${league}/summary?event=${id}&lang=en&region=in`,
+      raw => {
+        if (text(raw.header?.id) !== text(id)) throw new UpstreamError('ESPN summary event identity mismatch');
+        return normalizeEspnDetail(raw, [match.team1, match.team2]);
+      }, TTL.liveScore);
+    details = summary.data;
+    detailMeta = summary.meta;
+  } catch (err) {
+    if (!(err instanceof UpstreamError)) throw err;
+    detailMeta = { source: 'unavailable', error: err.message };
+  }
+  return { data: { ...match, ...details }, meta: { ...result.meta, detail: detailMeta } };
 }
 export function normalizeEspnStandings(raw, league) {
   const groups = [];
@@ -218,9 +234,10 @@ export function getEspnCommentary(league, id, page = 1) {
 export function normalizeEspnSquads(rosters = []) {
   return rosters.map((side) => ({
     teamId: text(side.team?.id), teamName: text(side.team?.displayName),
+    isAnnounced: confirmedXI(side.roster || []),
     players: (side.roster || []).map((p) => ({
       id: text(p.athlete?.id), name: text(p.athlete?.displayName || p.athlete?.name),
-      role: text(p.position?.name || p.athlete?.position?.name),
+      role: playerRole(p.position?.name ?? p.athlete?.position?.name),
       isCaptain: !!p.captain, isStarter: !!p.starter,
       battingStyle: text(p.athlete?.style?.find((s) => s.type === 'batting')?.description),
       bowlingStyle: text(p.athlete?.style?.find((s) => s.type === 'bowling')?.description),
