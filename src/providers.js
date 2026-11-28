@@ -1,3 +1,5 @@
+import { parseCareerTables, parseProfileBiography, profileNameFromTitle } from './player-career.js';
+import { reviewedCricbuzzUrl } from './player-profile-links.js';
 import { getCrexMatches } from './crex.js';
 import { fetchEspnHeader } from './espn.js';
 // Upstream providers. Each function returns { data, meta } where meta describes
@@ -450,7 +452,7 @@ export async function searchPlayers(query) {
  * Extracts personalInfo fields with a label scanner (code-observed approach).
  */
 export async function getPlayerProfile(playerId) {
-  const url = `${BASES.cricbuzz}/profiles/${playerId}`;
+  const url = reviewedCricbuzzUrl(playerId) || `${BASES.cricbuzz}/profiles/${playerId}`;
   return withFallback({
     fixtureOp: 'cb.playerProfile', // no fixture registered
     ttl: TTL.playerProfile,
@@ -466,7 +468,7 @@ export async function getPlayerProfile(playerId) {
 export function parseProfileHtml(html, playerId) {
   // Name from the page's main heading (observed selector: h1.cb-font-40).
   const h1 = html.match(/<h1[^>]*class="[^"]*cb-font-40[^"]*"[^>]*>([\s\S]*?)<\/h1>/i);
-  const name = h1 ? stripTags(h1[1]) : '';
+  const name = h1 ? stripTags(h1[1]) : profileNameFromTitle(html);
 
   // Personal-info label scanner: find labels in the flattened text and take
   // the value that follows (approach observed in public profile scrapers).
@@ -494,6 +496,11 @@ export function parseProfileHtml(html, playerId) {
     country,
     imageUrl: img ? img[1] : '',
     personalInfo,
+    biography: parseProfileBiography(html),
+    careerStats: parseCareerTables(html),
+    careerSourceUrl: reviewedCricbuzzUrl(playerId) || `https://www.cricbuzz.com/profiles/${encodeURIComponent(playerId)}`,
+    // Retrieval is not a guarantee that the provider has updated career totals.
+    careerUpdatedAt: null,
     source: 'cricbuzz-profile-html',
   };
 }

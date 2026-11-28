@@ -1,3 +1,4 @@
+import { verifyPlayerProfiles } from './player-evidence.mjs';
 import {logoCandidates,applyLogoCandidates} from '../src/team-logo-registry.js';
 import {discoverTeamLogos} from './discover-team-logos.mjs';
 import {reportFlagCoverage} from './flag-coverage.mjs';
@@ -27,6 +28,9 @@ const server=createServer();
 await new Promise(r=>server.listen(0,'127.0.0.1',r));
 try {
   const base=`http://127.0.0.1:${server.address().port}`;
+  // Report optional profile-provider availability separately from asset gates.
+  // A career outage must not erase otherwise valid match coverage.
+  await verifyPlayerProfiles(base);
   // Inventory the candidate too: production may have nulled these URLs already.
   // Reconfirm exact source references on every build; never resurrect exclusions
   // simply because a previous production payload no longer advertises them.

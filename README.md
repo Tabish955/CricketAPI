@@ -181,6 +181,7 @@ league ID. Supply `date=YYYYMMDD` to look up a historical league scoreboard.
 | `GET /espn/match/:id/scorecard?league=ID&date=YYYYMMDD` | Innings totals plus available individual batting/bowling stats from summary rosters |
 | `GET /espn/match/:id/squads?league=ID` | Summary rosters if supplied upstream |
 | `GET /espn/standings/:id` | Team standings: played, won, lost, points, NRR |
+| `GET /espn/player/:id` | ESPN personal profile; nullable Cricbuzz biography/career totals for four reviewed identity links only. See [coverage and provenance](docs/PLAYER-CAREER.md). |
 
 ESPN ball-by-ball is available at `GET /espn/match/:id/commentary?league=ID&page=1`
 with upstream pagination (`pageCount`, `total`); page numbering starts at 1. Header coverage is a current
