@@ -79,19 +79,32 @@ export function getEspnSeries(league, date) {
 export async function getEspnMatch(league, id, date, squads = false) {
   if (squads) return getEspnRosters(league, id);
   const result = await getEspnSeries(league, date);
-  const match = result.data.find((m) => m.matchId === id);
-  if (!match) throw new UpstreamError('match not found in league scoreboard; supply date=YYYYMMDD for historical matches', { status: 404 });
+  let match = result.data.find((m) => m.matchId === id);
+  const summaryUrl = `${WEB}/apis/site/v2/sports/cricket/${league}/summary?event=${id}&lang=en&region=in`;
+  let summaryResult;
+  async function summary() {
+    if (!summaryResult) summaryResult = await request('espn.detail', id, summaryUrl, raw => {
+      if (text(raw.header?.id) !== text(id)) throw new UpstreamError('ESPN summary event identity mismatch');
+      return raw;
+    }, TTL.liveScore);
+    return summaryResult;
+  }
+  // Historical events can disappear from a date-filtered scoreboard while the
+  // exact-event summary remains published. Never substitute a different event.
+  if (!match) {
+    try {
+      const s = await summary();
+      match = normalizeEspnEvent(s.data.header, { id: league });
+      if (!match.team1.id || !match.team2.id) match = null;
+    } catch (err) { if (!(err instanceof UpstreamError)) throw err; }
+    if (!match) throw new UpstreamError('match not found in league scoreboard or identity-checked summary; supply date=YYYYMMDD for historical matches', { status: 404 });
+  }
   let details = { toss: null, officials: null, pitch: null };
   let detailMeta;
   try {
-    const summary = await request('espn.detail', id,
-      `${WEB}/apis/site/v2/sports/cricket/${league}/summary?event=${id}&lang=en&region=in`,
-      raw => {
-        if (text(raw.header?.id) !== text(id)) throw new UpstreamError('ESPN summary event identity mismatch');
-        return normalizeEspnDetail(raw, [match.team1, match.team2]);
-      }, TTL.liveScore);
-    details = summary.data;
-    detailMeta = summary.meta;
+    const s = await summary();
+    details = normalizeEspnDetail(s.data, [match.team1, match.team2]);
+    detailMeta = s.meta;
   } catch (err) {
     if (!(err instanceof UpstreamError)) throw err;
     detailMeta = { source: 'unavailable', error: err.message };
