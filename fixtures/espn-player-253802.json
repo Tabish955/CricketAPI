@@ -1,0 +1,14 @@
+{
+  "athlete": {
+    "id": "253802",
+    "type": "cricket",
+    "displayName": "Virat Kohli",
+    "fullName": "Virat Kohli",
+    "shortName": "Virat Kohli",
+    "displayDOB": "5/11/1988",
+    "position": { "name": "Top-order batter" },
+    "team": { "id": "6", "displayName": "India" },
+    "batStyle": [{ "description": "Right-hand bat" }],
+    "bowlStyle": [{ "description": "Right-arm medium" }]
+  }
+}

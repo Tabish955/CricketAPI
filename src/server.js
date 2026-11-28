@@ -1,3 +1,4 @@
+import { getEspnPlayer } from './espn-player.js';
 import { sanitizeTeamPayload } from './team-assets.js';
 import { getSportskeedaStandings } from './sportskeeda.js';
 import { getCrexMatches } from './crex.js';
@@ -508,6 +509,7 @@ export async function handler(req, res) {
           'GET /cb/match/:id/squads[?source=auto|modern|legacy]',
           'GET /cb/player/name?q=Virat%20Kohli',
           'GET /cb/player/:id',
+          'GET /espn/player/:id',
           'GET /cb/series/:id/matches',
           'GET /cb/series/:id/points-table',
           'GET /cricinfo/current',
@@ -547,6 +549,12 @@ export async function handler(req, res) {
     if (skStandings) {
       const r = await getSportskeedaStandings(skStandings[1]);
       return send(res, 200, { success: true, result: r.data, meta: { dataMode: DATA_MODE, source: r.meta } });
+    }
+
+    const espnPlayer = path.match(/^\/espn\/player\/([1-9]\d{0,11})$/);
+    if (espnPlayer) {
+      const r = await getEspnPlayer(espnPlayer[1]);
+      return send(res, 200, { success: true, result: { found: r.data.found, player: r.data }, meta: { dataMode: DATA_MODE, source: r.meta } });
     }
 
     // --- Public ESPN scoreboard API (IDs are ESPN IDs, not Cricbuzz IDs) ---
