@@ -76,13 +76,24 @@ export const getEspnMatches = fetchEspnHeader;
 export function getEspnSeries(league, date) {
   return request('espn.series', league, `${SITE}/apis/site/v2/sports/cricket/${league}/scoreboard${date ? `?dates=${encodeURIComponent(date)}` : ''}`, normalizeEspnScoreboard, TTL.liveScore);
 }
-export async function getEspnMatch(league, id, date, squads = false) {
+export async function getEspnMatch(league, id, date, squads = false, reads = {}) {
   if (squads) return getEspnRosters(league, id);
-  const result = await getEspnSeries(league, date);
+  // A scoreboard outage must not prevent an identity-checked exact-event
+  // summary from serving historical match detail and scorecards.
+  let result;
+  try { result = await (reads.series || getEspnSeries)(league, date); }
+  catch (err) {
+    if (!(err instanceof UpstreamError)) throw err;
+    result = { data: [], meta: { source: 'unavailable', error: err.message } };
+  }
   let match = result.data.find((m) => m.matchId === id);
   const summaryUrl = `${WEB}/apis/site/v2/sports/cricket/${league}/summary?event=${id}&lang=en&region=in`;
   let summaryResult;
   async function summary() {
+    if (!summaryResult && reads.summary) {
+      summaryResult = await reads.summary(league, id);
+      if (text(summaryResult.data?.header?.id) !== text(id)) throw new UpstreamError('ESPN summary event identity mismatch');
+    }
     if (!summaryResult) summaryResult = await request('espn.detail', id, summaryUrl, raw => {
       if (text(raw.header?.id) !== text(id)) throw new UpstreamError('ESPN summary event identity mismatch');
       return raw;
@@ -98,6 +109,7 @@ export async function getEspnMatch(league, id, date, squads = false) {
       match = normalizeEspnEvent({ ...h, date: h.date || h.competitions?.[0]?.date,
         venue: s.data.gameInfo?.venue }, { id: league });
       if (!match.team1.id || !match.team2.id) match = null;
+      else result = { ...result, meta: { ...s.meta, scoreboard: result.meta } };
     } catch (err) { if (!(err instanceof UpstreamError)) throw err; }
     if (!match) throw new UpstreamError('match not found in league scoreboard or identity-checked summary; supply date=YYYYMMDD for historical matches', { status: 404 });
   }
@@ -201,6 +213,18 @@ export function normalizeEspnPlayerInnings(rosters = []) {
     .map((i) => ({ ...i, batsmen: i.batsmen.sort((a,b) => (a.position ?? 100) - (b.position ?? 100)) }));
 }
 
+export function mergeEspnScorecardInnings(totals, rows, sections) {
+  // Summary player rows can outlive scoreboard innings totals. Preserve their
+  // periods without inventing a score or treating missing totals as 0/0.
+  const periods = [...new Set([...totals, ...rows, ...sections].map((i) => i.inningsId))];
+  return periods.sort((a, b) => a - b).map((period) => {
+    const row = rows.find((i) => i.inningsId === period);
+    return { ...(row || {}), ...(totals.find((i) => i.inningsId === period) || { inningsId: period }),
+      ...(sections.find((i) => i.inningsId === period) || { extras: null, fallOfWickets: null, partnerships: null }),
+      batsmen: row?.batsmen || [], bowlers: row?.bowlers || [] };
+  });
+}
+
 export async function getEspnScorecard(league, id, date) {
   // Summary and scoreboard have independent coverage. Preserve totals if the
   // summary fails, while explicitly reporting the unavailable player statistics.
@@ -213,11 +237,7 @@ export async function getEspnScorecard(league, id, date) {
   const rows = normalizeEspnPlayerInnings(summary.data.teams);
   const totals = detail.data.scores;
   const sections = summary.data.inningsDetails || [];
-  const innings = totals.map((total) => ({ ...total,
-    ...(sections.find((i) => i.inningsId === total.inningsId) || { extras: null, fallOfWickets: null, partnerships: null }),
-    batsmen: rows.find((i) => i.inningsId === total.inningsId)?.batsmen || [],
-    bowlers: rows.find((i) => i.inningsId === total.inningsId)?.bowlers || [],
-  }));
+  const innings = mergeEspnScorecardInnings(totals, rows, sections);
   return { data: { matchId: id, innings,
     coverage: rows.length ? 'innings totals and available player statistics' : 'innings totals only',
   }, meta: { ...detail.meta, playerStatistics: summary.meta } };
