@@ -5,7 +5,6 @@ const MAX_BYTES = 204800;
 export function portraitCandidate(raw, id) {
   if (String(raw?.athlete?.id) !== String(id)) return null;
   const photo = raw.athlete.headshot;
-  if (photo?.rel?.includes('default')) return null;
   try {
     const u = new URL(photo?.href);
     if (u.origin !== 'https://a.espncdn.com' || u.username || u.password || u.search || u.hash

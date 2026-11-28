@@ -12,7 +12,7 @@ test('portrait is provider-published and exact ID-bound; no placeholders or URL 
     assert.equal(portraitCandidate(r, '123'), null);
   }
   const r = raw(); r.athlete.headshot.rel.push('default');
-  assert.equal(portraitCandidate(r, '123'), null);
+  assert.equal(portraitCandidate(r, '123'), url); // 'default' means primary, not necessarily placeholder
   assert.equal(portraitCandidate(raw(), '124'), null);
 });
 test('measured portrait GET rejects empty/oversize/nonimage/error/network; boundary accepted', async () => {
@@ -48,7 +48,7 @@ test('Cricbuzz fallback requires labelled portrait and independently verified pr
   const { profilePortraitCandidate } = await import('../src/player-career.js');
   const { verifiedCricbuzzPortrait } = await import('../src/player-portrait.js');
   const photo = 'https://static.cricbuzz.com/a/img/v1/i1/c582022/i.jpg?d=high&p=det';
-  const doc = `<img alt="Team" src="https://static.cricbuzz.com/a/img/v1/i1/c1/i.jpg"><img alt="Synthetic Player" src="${photo.replaceAll('&', '&amp;')}">`;
+  const doc = `<img alt="Team" src="https://static.cricbuzz.com/a/img/v1/i1/c1/i.jpg"><img alt="synthetic-player" src="${photo.replaceAll('&', '&amp;')}">`;
   assert.equal(profilePortraitCandidate(doc, 'Synthetic Player'), photo);
   assert.equal(profilePortraitCandidate(doc, 'Someone Else'), null);
   const cb = { found: true, playerId: '456', publishedPlayerId: '456', portraitCandidate: photo };

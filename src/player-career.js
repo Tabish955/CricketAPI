@@ -9,7 +9,7 @@ const value = (s) => !s || /^(?:[-–—]+|-\/-|n\/?a)$/i.test(s) ? null : s;
  */
 export function profilePortraitCandidate(html, name) {
   const $ = load(html);
-  const normalize = (s) => String(s || '').normalize('NFKC').replace(/\s+/g, ' ').trim().toLowerCase();
+  const normalize = (s) => String(s || '').normalize('NFKC').replace(/[-\s]+/g, ' ').trim().toLowerCase();
   // Only a visible portrait explicitly labelled with this profile's name.
   // Not the first image on the page (which may be a team, ad or news thumbnail).
   for (const img of $('img').toArray()) {
